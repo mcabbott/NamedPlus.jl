@@ -1,3 +1,4 @@
+# import NamedPlus: Contract, NamedUnion
 
 using TupleTools
 
@@ -7,10 +8,11 @@ using TupleTools
 # @macroexpand @ein A[i,j,k,a,b,c] := A[i,j,z,k] * B[a,z,b,c]
 # :(A = OMEinsum.einsum(OMEinsum.EinCode{((1, 2, 3, 4), (5, 3, 6, 7)), (1, 2, 4, 5, 6, 7)}(), (A, B)))
 
+#=
 function Contract{dims}(xraws::NamedUnion...) where {dims}
     xs = map(canonise, xraws)
 
-    all(map(x -> dims issubset NamedDims.names(x), xs)) || error("contraction indices $dims must appear in every factor")
+    all(map(x -> issubset(dims, NamedDims.names(x)), xs)) || error("contraction indices $dims must appear in every factor")
     allnames = TupleTools.vcat(map(NamedDims.names, xs)...)
 
     outnames = tuple_filter(i -> !(i in dims), tuple_unique(allnames))
@@ -22,6 +24,26 @@ function Contract{dims}(xraws::NamedUnion...) where {dims}
 
     resparent = OMEinsum.einsum(OMEinsum.EinCode{innumbers, outnumbers}(), map(parent, xs))
     NamedDimsArray{outnames}(resparent)
+end
+=#
+
+@generated function Contract{dims}(xs::NamedUnion...) where {dims}
+    # xs = map(canon_names, xs) # unfinished
+
+    all(map(x -> issubset(dims, NamedDims.names(x)), xs)) || error("contraction indices $dims must appear in every factor")
+    allnames = TupleTools.vcat(map(NamedDims.names, xs)...)
+
+    outnames = tuple_filter(i -> !(i in dims), tuple_unique(allnames))
+    outnumbers = map(i -> findfirst(isequal(i), allnames), outnames)
+
+    innumbers = map(x ->
+        map(i -> findfirst(isequal(i), allnames), NamedDims.names(x)),
+        xs)
+
+    quote
+        resparent = OMEinsum.einsum(OMEinsum.EinCode{$innumbers, $outnumbers}(), map(Base.parent, xs))
+        NamedDimsArray{$outnames}(resparent)
+    end
 end
 
 tuple_filter(f, t::Tuple) = _filter(f, t, ())
@@ -43,24 +65,3 @@ tuple_unique(t::Tuple) = _unique(t, ())
     end
 end
 _unique(t::Tuple{}, r::Tuple) = r
-
-#=
-
-AB = NamedDimsArray(rand(2,3), (:a, :b))
-ABC = NamedDimsArray(rand(2,3,4), (:a, :b, :c))
-BC = NamedDimsArray(rand(3,4), (:b, :c))
-
-*(:b, AB, BC) == AB * BC
-
-*(:b, AB, ABC) # only works after loading OMEinsum
-@ein Z[a,c] := AB[a,b] * ABC[a,b,c]
-
-*(:b, AB, ABC, BC) # contracts same index on 3
-@ein Z[a,c] := AB[a,b] * ABC[a,b,c] * BC[b,c]
-
-*′(xs...) = *(:c, xs...)
-AB *′ ABC *′ BC # error, gets done pairwise
-
-@code_warntype *(:b, AB, ABC) # a mess
-
-=#

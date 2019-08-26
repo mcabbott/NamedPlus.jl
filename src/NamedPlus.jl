@@ -17,11 +17,12 @@ export dimnames
     x.names
 
 The same as `NamedDims.names(x)`, minus the clash with `Base.names`.
+And `names(x, d)` works like `size(x, d)`.
 """
 dimnames(x) = NamedDims.names(x)
 
-dimnames(x,d::Int) = NamedDims.names(x)[d]
-NamedDims.names(x, d::Int) = NamedDims.names(x)[d]
+NamedDims.names(x, d::Int) = d <= ndims(x) ? NamedDims.names(x)[d] : :_
+dimnames(x,d::Int) = NamedDims.names(x, d)
 
 #################### WRAPPERS ####################
 # replacing https://github.com/invenia/NamedDims.jl/pull/64
@@ -31,38 +32,6 @@ function Base.PermutedDimsArray(nda::NamedDimsArray{L,T,N}, perm::NTuple{N,Symbo
     PermutedDimsArray(nda, numerical_perm)
 end
 
-export diagonal
-
-"""
-    diagonal(m)
-
-`diagonal` is to `Diagonal` about as `transpose` is to `Transpose`.
-On an ordinary Vector there is no distinction, but on a NamedDimsArray it returns
-`NamedDimsArray{T,2,Diagonal}` instead of `Diagonal{T,NamedDimsArray}`.
-This has two independent names, by default the same as that of the vector,
-but writing `diagonal(m, names)` they can be set.
-"""
-diagonal(x) = Diagonal(x)
-diagonal(x::NamedDimsArray{L,T,1}) where {L,T} = NamedDimsArray{(L[1],L[1])}(Diagonal(x.data))
-
-diagonal(x::AbstractVector, tup::Tuple{Symbol, Symbol}) =
-    NamedDimsArray{tup}(Diagonal(x))
-diagonal(x::NamedDimsArray{L,T,1}, tup::Tuple{Symbol, Symbol}) where {L,T} =
-    NamedDimsArray{tup}(Diagonal(x.data))
-
-using TupleTools
-
-NamedDims.names(x::Diagonal{T,NamedDimsArray{L,T,N,S}}) where {L,T,N,S} = (L[1], L[1])
-
-NamedDims.names(x::Transpose{T,NamedDimsArray{L,T,1,S}}) where {L,T,S} = (:_, L[1])
-NamedDims.names(x::Transpose{T,NamedDimsArray{L,T,2,S}}) where {L,T,S} = (L[2], L[1])
-
-NamedDims.names(x::Adjoint{T,NamedDimsArray{L,T,1,S}}) where {L,T,S} = (:_, L[1])
-NamedDims.names(x::Adjoint{T,NamedDimsArray{L,T,2,S}}) where {L,T,S} = (L[2], L[1])
-
-NamedDims.names(x::PermutedDimsArray{T,N,P,Q,NamedDimsArray{L,T,N,S}}) where {L,T,N,S,P,Q} =
-    TupleTools.permute(L, P)
-
 """
 `NamedMat{T,S}` is a union type for `NamedDimsArray` and wrappers containing this,
 such as `Transpose` & `Diagonal`. The object always has `ndims(x)==2`,
@@ -71,16 +40,28 @@ Type does not have `{L}` as that would not be equal to `names(x)`
 """
 NamedMat{T,S} = Union{
     NamedDimsArray{L,T,2,S} where {L},
+
     Diagonal{T,NamedDimsArray{L,T,1,S}} where {L},
     Transpose{T,NamedDimsArray{L,T,N,S}} where {L,N},
     Adjoint{T,NamedDimsArray{L,T,N,S}} where {L,N},
+
+    Symmetric{T,NamedDimsArray{L,T,N,S}} where {L,N},
+    Hermitian{T,NamedDimsArray{L,T,N,S}} where {L,N},
+    UpperTriangular{T,NamedDimsArray{L,T,N,S}} where {L,N},
+    UnitUpperTriangular{T,NamedDimsArray{L,T,N,S}} where {L,N},
+    LowerTriangular{T,NamedDimsArray{L,T,N,S}} where {L,N},
+    UnitLowerTriangular{T,NamedDimsArray{L,T,N,S}} where {L,N},
+    Tridiagonal{T,NamedDimsArray{L,T,N,S}} where {L,N},
+    SymTridiagonal{T,NamedDimsArray{L,T,N,S}} where {L,N},
     }
 
-NamedVec{T,S} = NamedDimsArray{L,T,1,S} where {L} # no 1D wrappers
+NamedVec{T,S} = NamedDimsArray{L,T,1,S} where {L} # no 1D wrappers, just a name
+
+NamedVecOrMat{T,S} = Union{NamedVec, NamedMat}
 
 """
 `NamedUnion{T,S}` is a union type for `NamedDimsArray{L,T,N,S}`
-and wrappers containing this, such as `PermutedDimsArray`, `Diagonal`.
+and wrappers containing this, such as `PermutedDimsArray`, `Diagonal`, `Transpose` etc.
 """
 NamedUnion{T,S} = Union{
     NamedDimsArray{L,T,N,S} where {L,N},
@@ -96,11 +77,75 @@ Base.getproperty(x::NamedDimsArray{L,T,N,S}, s::Symbol) where {L,T,N,S} =
     s===:parent ? parent(x) :
     getfield(x, s)
 
+export diagonal
+
+"""
+    diagonal(m)
+
+`diagonal` is to `Diagonal` about as `transpose` is to `Transpose`.
+On an ordinary Vector there is no distinction, but on a NamedDimsArray it returns
+`NamedDimsArray{T,2,Diagonal}` instead of `Diagonal{T,NamedDimsArray}`.
+This has two independent names, by default the same as that of the vector,
+but writing `diagonal(m, names)` they can be set.
+"""
+diagonal(x) = Diagonal(x)
+diagonal(x::NamedDimsArray{L,T,1}) where {L,T} = NamedDimsArray{(L[1],L[1])}(Diagonal(x.data))
+diagonal(x::NamedMat) where {L,T} = NamedDimsArray{dimnames(x)}(Diagonal(x.data))
+
+diagonal(x::AbstractArray, s::Symbol) = diagonal(x, (s,s))
+diagonal(x::AbstractArray, tup::Tuple{Symbol, Symbol}) =
+    NamedDimsArray{tup}(Diagonal(x))
+diagonal(x::NamedUnion, tup::Tuple{Symbol, Symbol}) =
+    NamedDimsArray{tup}(Diagonal(unname(x)))
+
+using TupleTools
+
+NamedDims.names(::Type{Diagonal{T,NamedDimsArray{L,T,1,S}}}) where {L,T,S} = (L[1], L[1])
+
+NamedDims.names(::Type{Transpose{T,NamedDimsArray{L,T,1,S}}}) where {L,T,S} = (:_, L[1])
+NamedDims.names(::Type{Transpose{T,NamedDimsArray{L,T,2,S}}}) where {L,T,S} = (L[2], L[1])
+
+NamedDims.names(::Type{Adjoint{T,NamedDimsArray{L,T,1,S}}}) where {L,T,S} = (:_, L[1])
+NamedDims.names(::Type{Adjoint{T,NamedDimsArray{L,T,2,S}}}) where {L,T,S} = (L[2], L[1])
+
+NamedDims.names(::Type{PermutedDimsArray{T,N,P,Q,NamedDimsArray{L,T,N,S}}}) where {L,T,N,S,P,Q} =
+    TupleTools.permute(L, P)
+
+
+NamedDims.unname(::Type{Diagonal{T,NamedDimsArray{L,T,N,S}}}) where {L,T,N,S} = Diagonal(x.diag.data)
+NamedDims.unname(::Type{Transpose{T,NamedDimsArray{L,T,N,S}}}) where {L,T,N,S} = Transpose(x.parent.data)
+NamedDims.unname(::Type{Adjoint{T,NamedDimsArray{L,T,N,S}}}) where {L,T,N,S} = Adjoint(x.parent.data)
+NamedDims.unname(::Type{PermutedDimsArray{T,N,P,Q,NamedDimsArray{L,T,N,S}}}) where {L,T,N,S,P,Q} = PermutedDimsArray(x.parent.data, P)
+
+
+# https://docs.julialang.org/en/v1/stdlib/LinearAlgebra/index.html#Special-matrices-1
+for Wrap in (
+    :Symmetric,
+    :Hermitian,
+    :UpperTriangular,
+    :UnitUpperTriangular,
+    :LowerTriangular,
+    :UnitLowerTriangular,
+    # :Tridiagonal,
+    # :SymTridiagonal, # these are more like Diagonal, wrap vectors
+    )
+    @eval NamedDims.names(::Type{$Wrap{T,NamedDimsArray{L,T,2,S}}}) where {L,T,S} = L
+    @eval NamedDims.unname(::Type{$Wrap{T,NamedDimsArray{L,T,2,S}}}) where {L,T,S} = $Wrap(parent(parent(x)))
+end
+# unname(Symmetric(NamedDimsArray(rand(3,3), (:a, :b))))
+
+# can we see inside other types not yet loaded? This breaks everything...
+# and parent(typeof(Diagonal(v))) is an error
+# function NamedDims.names(x::AbstractArray)
+#     p = parent(x)
+#     typeof(p) === typeof(x) ? ntuple(_->:_, ndims(x)) : NamedDims.names(p)
+# end
+
 #################### SHOW ####################
 
 function Base.summary(io::IO, x::NamedUnion)
     if ndims(x)==1
-        print(io, summary_pair(dimnames(x)[1],axes(x,1))," ",typeof(x))
+        print(io, length(x),"-element (",summary_pair(dimnames(x)[1],axes(x,1)),") ",typeof(x))
     else
         list = [summary_pair(na,ax) for (na,ax) in zip(dimnames(x), axes(x))]
         print(io, join(list," × "), " ",typeof(x))
@@ -110,7 +155,7 @@ end
 summary_pair(name::Symbol, axis) =
     axis===Base.OneTo(1) ? string(name,"=1") :
     first(axis)==1 ? string(name,"≤",length(axis)) :
-    string(name,"∈",axis)
+    string(name,"∈",first(axis),":",maximum(axis))
 
 #################### UNWRAPPING ####################
 ## https://github.com/invenia/NamedDims.jl/issues/65
@@ -122,14 +167,14 @@ Returns the parent array if the given names match those of `A`,
 otherwise a `transpose` or `PermutedDimsArray` view of the parent data.
 To ensure a copy, call instead `parent(permutedims(A, names))`.
 """
-function NamedDims.unname(nda::NamedDimsArray{L,T,N}, names::NTuple{N}) where {L,T,N}
+function NamedDims.unname(nda::NamedUnion, names::NTuple{N, Symbol}) where {N}
     perm = dim(nda, names)
     if perm == ntuple(identity, N)
-        return parent(nda)
+        return unname(nda)
     elseif perm == (2,1)
-        return transpose(parent(nda))
+        return transpose(unname(nda))
     else
-        return PermutedDimsArray(parent(nda), perm)
+        return PermutedDimsArray(unname(nda), perm)
     end
 end
 
@@ -157,9 +202,13 @@ end
 
 # diagonal / Diagonal
 canonise(x::Diagonal{T,<:NamedDimsArray{L,T,1}}) where {L,T} = x.diag
+canon_names(::Type{Diagonal{T,<:NamedDimsArray{L,T,1}}}) where {L,T} = L
 
 canonise(x::NamedDimsArray{L,T,2,<:Diagonal{T,<:AbstractArray{T,1}}}) where {L,T<:Number} =
     L[1] === L[2] ? NamedDimsArray{(L[1],)}(x.data.diag) : x
+canon_names(::Type{NamedDimsArray{L,T,2,<:Diagonal{T,<:AbstractArray{T,1}}}}) where {L,T<:Number} =
+    L[1] === L[2] ? (L[1],) : L # TODO make canon_names for all the rest? automate?
+
 
 # PermutedDimsArray
 canonise(x::PermutedDimsArray{T,N,P,Q,NamedDimsArray{L,T,N,S}}) where {L,T,N,S,P,Q} =
@@ -246,30 +295,14 @@ But generalised contraction canonicalises such a `B` to a vector,
 so contraction with a 3-tensor sends `(i,j,k) * (j,j) -> (i,k)` with no `j` indices surviving.
 Diagonal matrices with two different names, such as made by `diagonal(vec, names)`,
 are always treated as matrices.
-
-```
-julia> @named begin
-           A = rand(2,3)[j,i]
-           B = rand(2,4)[j,k]
-       end;
-
-julia> *(A, B; dims=:i) |> summary
-"3×4 NamedDimsArray{(:i, :k),Float64,2,Array{Float64,2}}"
-
-julia> @named *ⱼ = *(j)           # defines *ⱼ(x,y) = *(:j, x,y)
-*ⱼ (generic function with 1 method)
-
-julia> B *ⱼ A |> summary
-"4×3 NamedDimsArray{(:k, :i),Float64,2,Array{Float64,2}}"
-```
 """
 contract(xs::NamedUnion...; dims) = make_contract(dims, xs...)
 # Base.:*(x::NamedDimsArray{L,T,2}, xs::NamedUnion...; dims) where {L,T} = make_contract(dims, x, xs...)
 
 make_contract(dims, xs...) =
-    dims isa NTuple{N,Symbol} where {N} ? Contract{dims}(xs...) :
+    dims isa NTuple{N,Symbol} where {N} ? Contract{NamedDims.compile_time_return_hack(dims)}(xs...) :
     dims isa Vector{Symbol} ? Contract{Tuple(dims)}(xs...) :
-    dims isa Symbol ? Contract{(dims,)}(xs...) :
+    dims isa Symbol ? Contract{NamedDims.compile_time_return_hack((dims,))}(xs...) :
     error("contraction *(xs...; dims) must be over one or more symbols")
 
 function Contract{dims}(x::NamedDimsArray{Lx,Tx,1}, y::NamedDimsArray{Ly,Ty,1}) where {dims, Lx,Tx, Ly,Ty}
