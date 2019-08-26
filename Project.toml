@@ -1,0 +1,21 @@
+name = "NamedPlus"
+uuid = "c949b730-32ca-5034-8981-9fadbaa9e517"
+authors = ["Michael Abbott"]
+version = "0.0.1"
+
+[deps]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
+NamedDims = "356022a1-0364-5f58-8944-0da4b18d706f"
+Requires = "ae029012-a4dd-5104-9daa-d747884805df"
+TupleTools = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
+
+[compat]
+julia = "1"
+
+[extras]
+OMEinsum = "ebe7aa44-baf0-506c-a96f-8464559b3922"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test", "OMEinsum"]
