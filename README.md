@@ -1,22 +1,24 @@
 # NamedPlus.jl
 
 This package exists to try out ideas for [NamedDims.jl](https://github.com/invenia/NamedDims.jl),
-a package which attaches names to the dimensions/indices/axes of arrays.
-The opposite extremes of ways to use this are: 
+a lightweight package which attaches names to the dimensions/indices/axes of arrays.
+The ways to use this are: 
 
-* It can be used to check a calculation which is written to work on ordinary arrays.
-  The names should be propagated and the answer should have desired names. 
-  Any operation which mixes incompatible names should give an error. 
+1. It can be used to check a calculation which is written to work on ordinary arrays.
+  The names should be propagated through to the answer, and any operation which combines
+  incompatible dimension names should give an error. 
 
-* You can also write all operations working only on the names. This won't work on ordinary 
-  arrays, but the results can be made independent of the storage order of the data. 
+2. You can write some operations in terms of names not dimension number
+  for clarity. Things like `A[μ=1, ν=2]` and `sum(A; dims=:μ)` already work.
 
-The goal here is mostly the second use. This needs things like `A[μ=1, ν=2]` and `sum(A; dims=:μ)`
-(which already work) plus things like `contract(A,B; dims=:μ)` (defined here). 
-To safely go back to an ordinary array, you aso need to be able to specify its order of indices, 
-currently `unname(permutedims(A, (:α, :β)))` which always copies, here `unname(A, (:α,:β)` which does not.
+3. Or you can try to write all operations working only on the names, to make results independent of
+  the storage order of the data. 
 
-It also tries to handle wrapper types better, and provides some convenience macros:
+Functions defined here like `contract(A,B; dims=:μ)` aim at the at 2nd or 3rd use.
+`unname(A, (:α,:β))` which guarantees the order of the array (transposing only if necessary)
+aims at the 3rd.
+
+This package also tries to improve the handling wrapper types, and provides some convenience macros:
 
 ```julia
 using NamedPlus, LinearAlgebra
@@ -61,6 +63,9 @@ t *ⱼ diagonal(v, (:j, :j′)) # indices i,k,j′
 mk = rename(m, :j => :k) # replace an index
 tm = rand()<0.5 ? m : copy(transpose(m))
 unname(tm, (:i, :j))     # un-named array, always 2 x 3, sometimes ::Transpose
+
+prime(m, first) # names (:i′, :j)
+prime(m, 2)     # (:i, :j′)
 ```
 
 Adapting [PR#24](https://github.com/invenia/NamedDims.jl/pull/24) to make SVD work similarly...

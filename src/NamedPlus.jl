@@ -38,7 +38,7 @@ such as `Transpose` & `Diagonal`. The object always has `ndims(x)==2`,
 but may involve a wrapped `NamedDimsArray` with `ndims(x.parent)==1`.
 Type does not have `{L}` as that would not be equal to `names(x)`
 """
-NamedMat{T,S} = Union{
+const NamedMat{T,S} = Union{
     NamedDimsArray{L,T,2,S} where {L},
 
     Diagonal{T,NamedDimsArray{L,T,1,S}} where {L},
@@ -55,15 +55,15 @@ NamedMat{T,S} = Union{
     SymTridiagonal{T,NamedDimsArray{L,T,N,S}} where {L,N},
     }
 
-NamedVec{T,S} = NamedDimsArray{L,T,1,S} where {L} # no 1D wrappers, just a name
+const NamedVec{T,S} = NamedDimsArray{L,T,1,S} where {L} # no 1D wrappers, just a name
 
-NamedVecOrMat{T,S} = Union{NamedVec, NamedMat}
+const NamedVecOrMat{T,S} = Union{NamedVec, NamedMat}
 
 """
 `NamedUnion{T,S}` is a union type for `NamedDimsArray{L,T,N,S}`
 and wrappers containing this, such as `PermutedDimsArray`, `Diagonal`, `Transpose` etc.
 """
-NamedUnion{T,S} = Union{
+const NamedUnion{T,S} = Union{
     NamedDimsArray{L,T,N,S} where {L,N},
     NamedMat{T,S},
     PermutedDimsArray{T,N,P,Q,NamedDimsArray{L,T,N,S}} where {L,N,P,Q},
@@ -185,11 +185,11 @@ export rename
 """
     rename(A, names) = NamedDims.rename(A, names)
 
-Discards `A`'s names & replaces with the given ones.
+Discards `A`'s dimension names & replaces with the given ones.
 Exactly equivalent to `NamedDimsArray(unname(A), names)` I think.
 
     rename(A, :i => :j)
-    A′, B′ = rename(A, B, :i => :j, (:j,:j′) => :k)
+    A′, B′ = rename(A, B, :i => :j, :j => :k)
 
 Works a bit like `Base.replace` on index names.
 If there are several rules, the first matching rule is applied to each index, not all in sequence.
@@ -201,7 +201,7 @@ function rename(nda::NamedUnion, pairs::Pair...)
     old = dimnames(nda)
     new = map(old) do i
         for p in pairs
-            i == p.first || i in p.first && return p.second
+            i == p.first && return p.second
         end
         return i
     end
@@ -276,30 +276,38 @@ canonise(x::NamedDimsArray{L,T,2,<:Adjoint{T,<:AbstractArray{T,1}}}) where {L,T<
 canonise(x::Adjoint{T,<:NamedDimsArray{L,T,1}}) where {L,T<:Real} = x.parent
 
 
-#################### PERMUTELABELS ####################
+#################### PERMUTENAMES ####################
 
-export permutelabels
+export permutenames
 
 """
-    permutelabels(A, names)
+    permutenames(A, names)
+    permutenames(A, names, lazy=false)
 
 This is a bit like `permutedims`, but does not copy the data to a new array in the given order,
 and instead wraps it in `Transpose` or `PemutedDimsArray` if nedded.
+This is the default `lazy=true` behaviour. Keyword `lazy=false` will copy only if needed
+to avoid these wrappers. This is not exactly `permutedims(A, names)`, as that always copies.
 
 For now requires `length(names) == ndims(canonise(A))`.
 Perhaps it should allow longer lists, and insert trivial dimensions `:_` as needed?
+
+Note that `canonise(A)` unwraps `Diagonal{...,Vector}` and `Transpose{...,Vector}`
+to have just one index.
 """
-function permutelabels(A::NamedUnion, names::NTuple{N,Symbol} where N)
+function permutenames(A::NamedUnion, names::NTuple{N,Symbol} where N; lazy::Bool=true)
     B = canonise(A)
     perm = dim(B, names)
     if perm == ntuple(identity, ndims(B))
         return B
     elseif perm == (2,1)
-        return transpose(B)
+        return lazy ? transpose(B) : copy(transpose(B))
     else
-        return NamedDimsArray{names}(PermutedDimsArray(unname(B), perm))
+        C = lazy ? PermutedDimsArray(unname(B), perm) : permutedims(unname(B), perm)
+        return NamedDimsArray{names}(C)
     end
 end
+
 
 #################### SVD ETC ####################
 ## https://github.com/invenia/NamedDims.jl/issues/12
@@ -321,6 +329,7 @@ function Base.getproperty(fact::SVD{T, Tr, <:NamedDimsArray{L}}, d::Symbol) wher
     end
 end
 
+# Piracy...
 function Base.getindex(fact::SVD{T,Tr,<:NamedDimsArray{L}}, d::Symbol) where {T, Tr, L}
     n1, n2 = L
     if d === n1
@@ -330,7 +339,7 @@ function Base.getindex(fact::SVD{T,Tr,<:NamedDimsArray{L}}, d::Symbol) where {T,
     elseif d === :svd
         return fact.S
     else
-        error("")
+        error("expected symbol :$d to be either :svd or one of $L")
     end
 end
 
@@ -371,7 +380,7 @@ function Contract{dims}(x::NamedDimsArray{Lx,Tx,1}, y::NamedDimsArray{Ly,Ty,1}) 
     return transpose(x) * y
 end
 
-function Contract{dims}(x::NamedMat, y::NamedDimsArray{Ly,Ty,1}) where {dims, Ly,Ty}
+function Contract{dims}(x::NamedMat, y::NamedVec) where {dims}
     Lx = dimnames(x)
     s = dims[1]
     length(dims) > 1 && throw_contract_dim_error(dims, x, y)
@@ -384,9 +393,9 @@ function Contract{dims}(x::NamedMat, y::NamedDimsArray{Ly,Ty,1}) where {dims, Ly
     end
 end
 
-function Contract{dims}(x::NamedDimsArray{Lx,Tx,1}, y::NamedMat) where {dims, Lx,Tx}
-    # Ly = dimnames(y)
-    return Contract{dims}(y, x)
+function Contract{dims}(x::NamedVec, y::NamedMat) where {dims}
+    # return Contract{dims}(y, x) # this is wrong order, if elements of x & y don't commute
+    return canonise(transpose(y) * x)
 end
 
 function Contract{dims}(x::NamedMat, y::NamedMat) where {dims}
@@ -607,14 +616,46 @@ function _dropdims(ex)
     esc(out)
 end
 
-#################### PIRACY ####################
+#################### PRIMES ####################
+
+export prime
+
+"""
+    prime(x, d::Int)
+    prime(x, first)
+    prime(x, last)
+    prime(x, i::Symbol) = rename(x, i => prime(i))
+
+Add a unicode prime `′` to either the indicated index name, or to the given symbol.
+Acting on symbols, `prime(s) == Symbol(s, '′')` but faster.
+"""
+prime(s::Symbol)::Symbol = _prime(Val(s))
+# @btime (() -> prime(:a))() # shows 0 allocations
+@generated function _prime(vals::Val{s}) where {s}
+    QuoteNode(Symbol(s, Symbol('′')))
+end
+
+# @btime (() -> _prime((:i,:j,:k), Val(1)))() #  6ns, 1 allocation
+_prime(tup::NTuple{N,Symbol}, ::Val{n}) where {N,n} =
+    ntuple(i -> i==n ? prime(tup[i])::Symbol : tup[i], N)
+
+using NamedPlus: NamedUnion
+
+prime(x::NamedUnion, d::Int) = rename(x, _prime(NamedDims.names(x), Val(d)))
+prime(x::NamedUnion, ::typeof(first)) = rename(x, _prime(NamedDims.names(x), Val(1)))
+prime(x::NamedUnion, ::typeof(last)) = rename(x, _prime(NamedDims.names(x), Val(ndims(x))))
+
+prime(x::NamedUnion, s::Symbol) = rename(x, s => prime(s))
 
 """
     :x' == :x′
 
 `adjoint(::Symbol)` adds unicode prime `′` to the end.
 """
-Base.adjoint(s::Symbol) = Symbol(s, '′')
+Base.adjoint(s::Symbol) = prime(s)
+
+
+
 
 #################### THE END ####################
 
