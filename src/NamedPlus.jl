@@ -654,8 +654,71 @@ prime(x::NamedUnion, s::Symbol) = rename(x, s => prime(s))
 """
 Base.adjoint(s::Symbol) = prime(s)
 
+#################### TENSOROPERATIONS ####################
 
+export @named
 
+using MacroTools, Strided
+
+"""
+    @named @tensor A[i,j] := B[i,k] * C[k,j]
+
+The macro `@named` does two things to `@tensor` expressions:
+The newly created output array `A` here is always a `NamedDimsArray{(:i,:k)}`.
+And if `B` is a `NamedDimsArray`, then it must have names `(:i,:k)`, but any order is fine.
+
+    @named @strided A{i,j} = B .+ exp.(C)
+
+The same macro might be made to work on broadcasting with `@strided`?
+"""
+macro named(ex)
+    _named(ex)
+end
+
+function _named(input_ex)
+    MacroTools.postwalk(input_ex) do ex
+        @capture(ex, @tensor lhs_ := rhs_) && return tensorise(rhs, lhs)
+        @capture(ex, @tensor lhs_ = rhs_) && return tensorise(ex)
+        @capture(ex, @strided ex) && error("not yet")
+        ex
+    end |> esc
+end
+
+function tensorise(ex, left=nothing)
+    out = quote end
+    tex = MacroTools.postwalk(ex) do x
+        if @capture(x, A_[ijk__])
+            Aname, Aperm = gensym(A), gensym(:perm)
+            inds = map(QuoteNode, ijk)
+            append!(out.args, (quote
+                if $A isa NamedPlus.NamedUnion
+                    $Aperm = dim($A, ($(inds...),))
+                    $Aname = Base.permutedims(NamedPlus.Strided.maybestrided(NamedPlus.unname($A)), $Aperm)
+                else
+                    $Aname = $A
+                end
+            end).args)
+            return :( $Aname[$(ijk...)] )
+        end
+        x
+    end
+    # case of ex = @tensor A[] = B[] * C[], in-place
+    if left===nothing
+        push!(out.args, tex) # returns unwrapped A, fix this... TODO
+        return out
+
+    # case of @tensor A[] := B[] * C[], new array created
+    else
+        @capture(left, A_[ijk__]) || error("can't understand @tensor LHS, $left")
+        Aname = gensym(A)
+        inds = map(QuoteNode, ijk)
+        append!(out.args, (quote
+            @tensor $Aname[$(ijk...)] := $tex
+            NamedDims.NamedDimsArray{($(inds...),)}($Aname)
+        end).args)
+        return :( $A = $out )
+    end
+end
 
 #################### THE END ####################
 

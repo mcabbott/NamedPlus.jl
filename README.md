@@ -66,6 +66,11 @@ unname(tm, (:i, :j))     # un-named array, always 2 x 3, sometimes ::Transpose
 
 prime(m, first) # names (:i′, :j)
 prime(m, 2)     # (:i, :j′)
+
+# tensor notation
+using TensorOperations # macro unwraps, and permutes if needed using Strided 
+@named @tensor vk[k] := t[i,j,k] * tm[i,j]     # create NamedDimsArray{(:k,)
+@named @tensor vk[k] = t[i,j,k] * tm[i,j]; vk  # write into vk, wrong return type :(
 ```
 
 Adapting [PR#24](https://github.com/invenia/NamedDims.jl/pull/24) to make SVD work similarly...
@@ -85,4 +90,3 @@ contract(s.U, s.S, s.V; dims=:svd) # contract three objects, leaving indices i &
 @namedef s[:j]{j,svd} => U # sure of having (j,svd) order, always size 3 x 2, sometimes ::Transpose
 ```
 
-Something about this seems to break Revise.jl, BTW.
