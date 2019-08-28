@@ -2,13 +2,13 @@
 
 This package exists to try out ideas for [NamedDims.jl](https://github.com/invenia/NamedDims.jl),
 a package which attaches names to the dimensions/indices/axes of arrays.
-There are two ways to use this: 
+The opposite extremes of ways to use this are: 
 
-* One way is to check a calculation which is written to work on ordinary arrays.
+* It can be used to check a calculation which is written to work on ordinary arrays.
   The names should be propagated and the answer should have desired names. 
   Any operation which mixes incompatible names should give an error. 
 
-* The other way is to write calculations working only on the names. This won't work on ordinary 
+* You can also write all operations working only on the names. This won't work on ordinary 
   arrays, but the results can be made independent of the storage order of the data. 
 
 The goal here is mostly the second use. This needs things like `A[μ=1, ν=2]` and `sum(A; dims=:μ)`
@@ -16,7 +16,7 @@ The goal here is mostly the second use. This needs things like `A[μ=1, ν=2]` a
 To safely go back to an ordinary array, you aso need to be able to specify its order of indices, 
 currently `unname(permutedims(A, (:α, :β)))` which always copies, here `unname(A, (:α,:β)` which does not.
 
-It also tries to handle wrapper types better, and provides some convenience macros.
+It also tries to handle wrapper types better, and provides some convenience macros:
 
 ```julia
 using NamedPlus, LinearAlgebra
@@ -40,18 +40,27 @@ p = PermutedDimsArray(t, (3,1,2))
 p.names                # (:k, :i, :j)
 p == PermutedDimsArray(t, (:k,:i,:j)) # works too, same wrapper
 t == canonise(p)       # unwraps
+```
 
+New functions / methods:
+
+```julia
 # contract(v, m; dims=:j) knows to transpose:
 v *ⱼ m           # index i
 m *ⱼ diagonal(v) # indices i,j
 
-@code_warntype v *ⱼ m # fine! 
-@code_warntype contract(v,m; dims=:j) # ::Any
+@code_warntype v *ⱼ m # fine! uses Contract{(:j,)}(v,m)
+@code_warntype contract(v,m; dims=:j) # ::Any, hence slow
 
 using OMEinsum # allows contraction with a 3-tensor
 t *ⱼ m           # indices i,k
 t *ⱼ diagonal(v) # indices i,k
 t *ⱼ diagonal(v, (:j, :j′)) # indices i,k,j′
+
+# rename, unname
+mk = rename(m, :j => :k) # replace an index
+tm = rand()<0.5 ? m : copy(transpose(m))
+unname(tm, (:i, :j))     # un-named array, always 2 x 3, sometimes ::Transpose
 ```
 
 Adapting [PR#24](https://github.com/invenia/NamedDims.jl/pull/24) to make SVD work similarly...
@@ -71,3 +80,4 @@ contract(s.U, s.S, s.V; dims=:svd) # contract three objects, leaving indices i &
 @namedef s[:j]{j,svd} => U # sure of having (j,svd) order, always size 3 x 2, sometimes ::Transpose
 ```
 
+Something about this seems to break Revise.jl, BTW.

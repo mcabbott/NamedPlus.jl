@@ -112,10 +112,10 @@ NamedDims.names(::Type{PermutedDimsArray{T,N,P,Q,NamedDimsArray{L,T,N,S}}}) wher
     TupleTools.permute(L, P)
 
 
-NamedDims.unname(::Type{Diagonal{T,NamedDimsArray{L,T,N,S}}}) where {L,T,N,S} = Diagonal(x.diag.data)
-NamedDims.unname(::Type{Transpose{T,NamedDimsArray{L,T,N,S}}}) where {L,T,N,S} = Transpose(x.parent.data)
-NamedDims.unname(::Type{Adjoint{T,NamedDimsArray{L,T,N,S}}}) where {L,T,N,S} = Adjoint(x.parent.data)
-NamedDims.unname(::Type{PermutedDimsArray{T,N,P,Q,NamedDimsArray{L,T,N,S}}}) where {L,T,N,S,P,Q} = PermutedDimsArray(x.parent.data, P)
+NamedDims.unname(x::Diagonal{T,NamedDimsArray{L,T,N,S}}) where {L,T,N,S} = Diagonal(x.diag.data)
+NamedDims.unname(x::Transpose{T,NamedDimsArray{L,T,N,S}}) where {L,T,N,S} = Transpose(x.parent.data)
+NamedDims.unname(x::Adjoint{T,NamedDimsArray{L,T,N,S}}) where {L,T,N,S} = Adjoint(x.parent.data)
+NamedDims.unname(x::PermutedDimsArray{T,N,P,Q,NamedDimsArray{L,T,N,S}}) where {L,T,N,S,P,Q} = PermutedDimsArray(x.parent.data, P)
 
 
 # https://docs.julialang.org/en/v1/stdlib/LinearAlgebra/index.html#Special-matrices-1
@@ -176,6 +176,42 @@ function NamedDims.unname(nda::NamedUnion, names::NTuple{N, Symbol}) where {N}
     else
         return PermutedDimsArray(unname(nda), perm)
     end
+end
+
+#################### RENAME ####################
+
+export rename
+
+"""
+    rename(A, names) = NamedDims.rename(A, names)
+
+Discards `A`'s names & replaces with the given ones.
+Exactly equivalent to `NamedDimsArray(unname(A), names)` I think.
+
+    rename(A, :i => :j)
+    A′, B′ = rename(A, B, :i => :j, (:j,:j′) => :k)
+
+Works a bit like `Base.replace` on index names.
+If there are several rules, the first matching rule is applied to each index, not all in sequence.
+Given several arrays `A, B`, it makes the same replacements for all, returning a tuple.
+"""
+rename(nda::NamedUnion, names::NTuple{N, Symbol} where N) = NamedDims.rename(nda, names)
+
+function rename(nda::NamedUnion, pairs::Pair...)
+    old = dimnames(nda)
+    new = map(old) do i
+        for p in pairs
+            i == p.first || i in p.first && return p.second
+        end
+        return i
+    end
+    NamedDimsArray(unname(nda), new)
+end
+
+for n=2:10
+    args = [:( $(Symbol("nda_",i))::NamedUnion ) for i=1:n ]
+    vals = [:( rename($(Symbol("nda_",i)), pairs...) ) for i=1:n ]
+    @eval rename($(args...), pairs::Pair...) = ($(vals...),)
 end
 
 #################### CANONICALISE ####################
@@ -239,6 +275,31 @@ canonise(x::NamedDimsArray{L,T,2,<:Adjoint{T,<:AbstractArray{T,1}}}) where {L,T<
 
 canonise(x::Adjoint{T,<:NamedDimsArray{L,T,1}}) where {L,T<:Real} = x.parent
 
+
+#################### PERMUTELABELS ####################
+
+export permutelabels
+
+"""
+    permutelabels(A, names)
+
+This is a bit like `permutedims`, but does not copy the data to a new array in the given order,
+and instead wraps it in `Transpose` or `PemutedDimsArray` if nedded.
+
+For now requires `length(names) == ndims(canonise(A))`.
+Perhaps it should allow longer lists, and insert trivial dimensions `:_` as needed?
+"""
+function permutelabels(A::NamedUnion, names::NTuple{N,Symbol} where N)
+    B = canonise(A)
+    perm = dim(B, names)
+    if perm == ntuple(identity, ndims(B))
+        return B
+    elseif perm == (2,1)
+        return transpose(B)
+    else
+        return NamedDimsArray{names}(PermutedDimsArray(unname(B), perm))
+    end
+end
 
 #################### SVD ETC ####################
 ## https://github.com/invenia/NamedDims.jl/issues/12
@@ -360,6 +421,7 @@ function __init__()
     @require OMEinsum = "ebe7aa44-baf0-506c-a96f-8464559b3922" include("omeinsum_compat.jl")
 end
 
+#=
 #################### OLD MACROS ####################
 ## https://github.com/invenia/NamedDims.jl/pull/62
 
@@ -437,6 +499,8 @@ function unname_macro(input_ex)
         return ex
     end
 end
+
+=#
 
 #################### NEW MACRO ####################
 
