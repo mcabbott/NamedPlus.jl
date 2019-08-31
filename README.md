@@ -1,8 +1,8 @@
 # NamedPlus.jl
 
 This package exists to try out ideas for [NamedDims.jl](https://github.com/invenia/NamedDims.jl),
-a lightweight package which attaches names to the dimensions/indices/axes of arrays.
-The ways to use this are: 
+to see what's useful. `NamedDims` is a lightweight package which attaches names to the 
+dimensions/indices/axes of arrays. The ways to use this are: 
 
 1. It can be used to check a calculation which is written to work on ordinary arrays.
   The names should be propagated through to the answer, and any operation which combines
@@ -24,11 +24,11 @@ This package also tries to improve the handling wrapper types, and provides some
 using NamedPlus, LinearAlgebra
 
 # convenience macros
-@namedef begin
-    rand(3) => v{j}
-    rand(2,3) => m{i,j}   # define m whose type includes (:i, :j)
-    rand(2,3,4) => t{i,j,k}
-    contract => *ⱼ{j}     # infix contraction funciton over :j
+@named begin
+    v{j} = rand(3)
+    m{i,j} = rand(2,3)    # define m whose type includes (:i, :j)
+    t{i,j,k} = rand(2,3,4)
+    *ⱼ = contract{j}      # infix contraction funciton over :j
 end;
 w = @dropdims sum(m; dims=:i) # 3-element NamedDimsArray{(:j,),...
 
@@ -47,7 +47,7 @@ t == canonise(p)       # unwraps
 New functions / methods:
 
 ```julia
-# contract(v, m; dims=:j) knows to transpose:
+# contract(v, m; dims=:j) knows to transpose: ## BROKEN
 v *ⱼ m           # index i
 m *ⱼ diagonal(v) # indices i,j
 
@@ -71,6 +71,9 @@ prime(m, 2)     # (:i, :j′)
 using TensorOperations # macro unwraps, and permutes if needed using Strided 
 @named @tensor vk[k] := t[i,j,k] * tm[i,j]     # create NamedDimsArray{(:k,)
 @named @tensor vk[k] = t[i,j,k] * tm[i,j]; vk  # write into vk, wrong return type :(
+
+using OMEinsum # overloading its own notation
+@ein vk[k] := t[i,j,k] * m[i,j]
 ```
 
 Adapting [PR#24](https://github.com/invenia/NamedDims.jl/pull/24) to make SVD work similarly...
@@ -85,8 +88,8 @@ s[:i]       # could be s.U or s.Vt depending on order of m's indices
 s[:j]       # always :j and :svd, in some order
 s[:svd]     # always s.S
 
-contract(s.U, s.S, s.V; dims=:svd) # contract three objects, leaving indices i & j
+contract(s.U, s.S, s.V; dims=:svd) # contract three objects, leaving indices i & j ## BROKEN
 
-@namedef s[:j]{j,svd} => U # sure of having (j,svd) order, always size 3 x 2, sometimes ::Transpose
+@named U = s[:j]{j,svd} # sure of having (j,svd) order, always size 3 x 2, sometimes ::Transpose
 ```
 
