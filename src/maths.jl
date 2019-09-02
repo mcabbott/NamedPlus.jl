@@ -70,7 +70,7 @@ function Contract{dims}(x::NamedDimsArray{Lx,Tx,1}, y::NamedDimsArray{Ly,Ty,1}) 
 end
 
 function Contract{dims}(x::NamedMat, y::NamedVec) where {dims}
-    Lx = names(x)
+    Lx, Ly = names(x), names(y)
     s = dims[1]
     length(dims) > 1 && throw_contract_dim_error(dims, x, y)
     if s == Lx[2] == Ly[1]
@@ -84,7 +84,7 @@ end
 
 function Contract{dims}(x::NamedVec, y::NamedMat) where {dims}
     # return Contract{dims}(y, x) # this is wrong order, if elements of x & y don't commute
-    return canonise(transpose(y) * x)
+    return canonise(Contract{dims}(transpose(x),y))
 end
 
 function Contract{dims}(x::NamedMat, y::NamedMat) where {dims}

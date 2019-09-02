@@ -1,5 +1,5 @@
 
-#################### TENSOROPERATIONS ####################
+#################### MEGA-MACRO ####################
 
 export @named
 
@@ -29,10 +29,11 @@ its labels permuted (lazily) to match `i,j,y,x` before broadcasting.
 Ordinary arrays assumed to already match this order.
 
     D = @named softmax(A, dims={i})
+    S = @named sum(f, A, dropdims={i})
 
 Curly brackets here tell the macro to treat this like `sum(A, dims=:i)`, but this works on
 functions which `NamedDims` hasn't extended.
-Doesn't know about `fun(f, A; dims)` or `fun(f, A; dims) do x ...`.
+Allows `fun(f, A; dims)` but not `fun(A; dims) do x ...`, nor other keywords.
 
     @named *′ = contract{k}      # *′(xs...) = Contract{(:k,)}(xs...)
 
@@ -69,8 +70,11 @@ _named(input_ex, mod) =
         # Special words like contract must come before unname
         @capture(ex, g_ = contract{ijk__}) && return ex_fun(g, :Contract, ijk)
 
-        @capture(ex, fun_(A, dims={ijk__})) || @capture(ex, fun_(A; dims={ijk__})) &&
-            return ex_dims(fun, A, ijk)
+        if @capture(ex, fun_(args__, A_, dims={ijk__})) || @capture(ex, fun_(args__, A_; dims={ijk__}))
+            return ex_dims(args, fun, A, ijk)
+        elseif @capture(ex, fun_(args__, A_, dropdims={ijk__})) || @capture(ex, fun_(args__, A_; dropdims={ijk__}))
+            return ex_dropdims(args, fun, A, ijk)
+        end
 
         # @capture(ex, A_{ijk__} = B_) && return ex_addname(A, ijk, B) # clash!
         # @capture(ex, {ijk__} = B_)   && return ex_addname(gensym(:def), ijk, B)
@@ -129,9 +133,27 @@ function ex_cast(lhs, ind, rhs, mod)
     return :( $lhs = NamedDims.NamedDimsArray($newright, $tup) )
 end
 
-function ex_dims(fun, A, ijk)
-    :( $fun($A; dims=NamedDims.dim($A, ($(ijk...),)) ) )
+function ex_dims(args, fun, A, ijk)
+    inds = map(QuoteNode, ijk)
+    @gensym A′
+    quote
+        $A′ = $A # pulled out in case this is a calculation
+        $fun($(args...), $A′; dims=NamedPlus._un_onetuple(NamedDims.dim($A′, ($(inds...),))) )
+    end
 end
+
+function ex_dropdims(args, fun, A, ijk)
+    inds = map(QuoteNode, ijk)
+    @gensym A′ dims
+    quote
+        $A′ = $A # pulled out in case this is a calculation
+        $dims = NamedPlus._un_onetuple(NamedDims.dim($A′, ($(inds...),)))
+        dropdims($fun($(args...), $A′; dims=$dims); dims=$dims)
+    end
+end
+
+_un_onetuple(x) = x
+_un_onetuple(x::Tuple{<:Any}) = first(x)
 
 function ex_tensor(ex, left=nothing)
     out = quote end
