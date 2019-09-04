@@ -38,6 +38,8 @@ names(m′) == (:i, :_, :j)
 
 # ===== contract(v, m; dims=:j) should insert transposes
 m * v
+m' ⊙ t # operator to contract neibouring indices, like python's @
+
 @named *ⱼ = contract{j} # define infix contraction funciton over :j
 v *ⱼ m           # index i
 m *ⱼ diagonal(v) # indices i,j

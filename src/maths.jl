@@ -142,4 +142,68 @@ tuple_unique(t::Tuple) = _unique(t, ())
 end
 _unique(t::Tuple{}, r::Tuple) = r
 
+#################### PYTHONESQUE TIMES ####################
+
+export ⊙
+
+using NamedDims: valid_matmul_dims, throw_matrix_dim_error
+
+"""
+    A ⊙ B    # \\odot
+
+Generalised matrix multiplication: contracts the last index of `A` with the first index of `B`.
+Left-associative `A⊙B⊙C = (A⊙B)⊙C` like `*`.
+"""
+function ⊙(A::AbstractArray, B::AbstractArray)
+    n = size(A, ndims(A))
+    @assert size(B,1) == n "⊙ needs matching sizes on dimensions which touch"
+    out = reshape(reshape(unname(A),:,n) * reshape(unname(B),n,:), _osizes(A,B)...)
+    if A isa NamedUnion || B isa NamedUnion
+        return NamedDimsArray{_onames(A,B)}(out)
+    else
+        return out
+    end
+end
+
+_osizes(A::AbstractArray{T,N}, B::AbstractArray{S,M}) where {T,N,S,M} =
+    ntuple(i -> i<N ? size(A, i) : size(B, i-N+2), Val(N+M-2))
+
+function _onames(A::NamedUnion, B::NamedUnion)
+    valid_matmul_dims(names(A), names(B)) || throw_matrix_dim_error(names(A), names(B))
+    ntuple(i -> i<ndims(A) ? names(A, i) : names(B, i-ndims(A)+2), Val(ndims(A)+ndims(B)-2))
+end
+_onames(A::AbstractArray, B::NamedUnion) =
+    ntuple(i -> i<ndims(A) ? :_ : names(B, i-ndims(A)+2), Val(ndims(A)+ndims(B)-2))
+_onames(A::NamedUnion, B::AbstractArray) =
+    ntuple(i -> i<ndims(A) ? names(A, i) : :_, Val(ndims(A)+ndims(B)-2))
+
+⊙(A::AbstractMatrix, B::AbstractMatrix) = A*B
+⊙(A::AbstractMatrix, B::AbstractVector) = A*B
+⊙(A::AbstractVector, B::AbstractVector) = transpose(A)*B
+
+⊙(A::AbstractArray, B::Number) = A*B
+⊙(A::Number, B::AbstractArray) = A*B
+⊙(A::Number, B::Number) = A*B
+
+
+#################### SOFTMAX ####################
+## https://github.com/FluxML/NNlib.jl/issues/77
+
+function softmax1(xs::AbstractArray{T}; dims=1) where {T}
+    max = maximum(xs, dims=dims)
+    out = exp.(xs .- max) ./ sum(exp.(xs .- max), dims=dims)
+end
+
+function softmax2(xs::AbstractArray{T}; dims=1) where {T}
+    temp = maximum(xs, dims=dims)
+    out = exp.(xs .- temp)
+    out ./= sum!(temp, out)
+end
+
+function softmax3(xs::AbstractArray{T}; dims=1) where {T}
+    max = maximum(xs, dims=dims)
+    out = exp.(xs .- max)
+    out ./ sum(out, dims=dims)
+end
+
 ####################
