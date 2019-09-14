@@ -23,13 +23,13 @@ Base.names(x::NamedUnion, d::Int) = NamedDims.names(x, d)
 
 NamedDims.names(x, d::Int) = d <= ndims(x) ? NamedDims.names(x)[d] : :_
 
-Base.getproperty(x::NamedUnion, s::Symbol) =
-    s===:names ? names(x) :
-    getfield(x, s)
+# Base.getproperty(x::NamedUnion, s::Symbol) =
+#     s===:names ? names(x) :
+#     getfield(x, s)
 
-Base.getproperty(x::NamedDimsArray, s::Symbol) =
-    s===:parent ? parent(x) :
-    getfield(x, s)
+# Base.getproperty(x::NamedDimsArray, s::Symbol) =
+#     s===:parent ? parent(x) :
+#     getfield(x, s)
 
 #################### BASE.SHOW ####################
 

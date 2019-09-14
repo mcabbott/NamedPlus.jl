@@ -55,7 +55,7 @@ t *ⱼ diagonal(v, (:j, :j′)) # indices i,k,j′
 
 # ===== wrapper types
 d = Diagonal(v)        # 3×3 Diagonal{Float64,NamedDimsArray{(:j,), ...
-d.names                # (:j, :j), using getproperty(::NamedUnion, ...)
+names(d)               # (:j, :j)
 unname(d)              # looks inside
 diagonal(v, (:j, :j′)) # NamedDimsArray{(:j, :j′), ..., Diagonal{...
 diagonal(v)[j=2]       # fixes both indices, not yet for Diagonal(v)
