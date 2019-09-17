@@ -63,7 +63,7 @@ end
 
 #################### PERMUTENAMES ####################
 
-export permutenames
+export permutenames, permutenames2
 
 """
     permutenames(A, names)
@@ -114,13 +114,42 @@ chop_zeros(perm, targ) = last(perm)==0 ? chop_zeros(perm[1:end-1], targ[1:end-1]
 _permutenames(A::NamedUnion, n::NTuple{N,Symbol} where N) = permutenames(A, n)
 _permutenames(A, n::NTuple{N,Symbol} where N) = A
 
-# This is quite slow:
 #=
+# Construction of GapView via permutenames2 is now fast, permutenames slow:
+
+import NamedPlus: permutenames, permutenames2, NamedUnion, chop_zeros, GapView, Q_from_P
 AB = NamedDimsArray(rand(1:10, 2,3), (:a,:b))
 @btime (AB -> permutenames(AB, (:b, :z, :a, :c)))($AB) # 6 μs
-@btime (AB -> permutenames2(AB, (:b, :z, :a, :c)))($AB) # 9 μs
+@btime (AB -> permutenames2(AB, (:b, :z, :a, :c)))($AB) # 4.2 μs
+@btime (AB -> permutenames2(AB, Val((:b, :z, :a, :c))))($AB) # 10ns
+@btime (GapView(unname($AB), (2, 0, 1))) # 4.4 μs
+
+# But broadcasting with GapView is slow, I don't know why:
+
+A_B = permutenames2(AB, Val((:a, :c, :b))) |> unname
+ArB = reshape(AB, 2,1,3)
+C = similar(A_B);
+
+@btime $C .= 2 .* $A_B # 10x slower!
+@btime $C .= 2 .* $ArB
+
+@btime $A_B[4]
+@btime $ArB[4]
+
+@btime $A_B[1,1,1]
+@btime $ArB[1,1,1]
+
+@btime axes($A_B)
+@btime axes($ArB)
+
+Base.materialize!(C, Base.broadcasted(*, 2, A_B))
 =#
 
+"""
+    permutenames2(A, target)
+
+Faster `@generated` version of `permutenames`, works out `P` & `Q` for `GapView` in advance.
+"""
 permutenames2(A::NamedUnion, target::NTuple{N,Symbol} where N) =
     permutenames2(A, Val(target))
 
@@ -139,14 +168,22 @@ permutenames2(A::NamedUnion, target::NTuple{N,Symbol} where N) =
         return :( transpose(A) )
 
     elseif !(0 in perm)
-        return :( NamedDimsArray{targ}(PermutedDimsArray(unname(A), perm)) )
+        return :( NamedDimsArray{targ}(PermutedDimsArray(unname(A), $perm)) )
 
     # elseif perm is sorted && typeof(parent) <: Array?
     #     then reshape
 
     else
         L = map(n -> n in namesA ? n : :_, targ)
-        return :( NamedDimsArray{$L}(GapView(unname(A), $perm)) )
+        # return :( NamedDimsArray{$L}(GapView(unname(A), $perm)) )
+        Q = Q_from_P(perm, ndims(A))
+        N = length(targ)
+        B, C = gensym(:un), gensym(:gap)
+        return quote
+            $B = unname(A)
+            $C = GapView{$T,$N,$perm,$Q,typeof($B)}($B)
+            NamedDimsArray{$L}($C)
+        end
     end
 end
 
@@ -165,18 +202,47 @@ GapView(A::S, P::NTuple{N,Int}) where {S<:AbstractArray{T,M}} where {T,N,M} =
 
 zero_nothing(P::Tuple) = map(n -> n===Nothing ? 0 : n, P)
 
+Q_from_P(P::Tuple, M::Int) = ntuple(d -> findfirst(isequal(d),P), M)
 @generated Q_from_P(::Val{P}, ::Val{M}) where {P,M} =
     ntuple(d -> findfirst(isequal(d),P), M)
 
 Base.size(A::GapView{T,N,P}) where {T,N,P} =
-    ntuple(d -> P[d]==0 ? 1 : size(A.parent,P[d]), N)
+    # ntuple(d -> P[d]==0 ? 1 : size(A.parent,P[d]), N)
+    ntuple(d -> P[d]==0 ? 1 : size(A.parent,getproperty(P,d)), N)
 
-Base.getindex(A::GapView{T,N,P,Q}, iA::Integer...) where {T,N,P,Q} =
-    getindex(A.parent, ntuple(d -> iA[Q[d]], ndims(A.parent))...)
+Base.length(A::GapView) = length(A.parent)
+
+# Base.getindex(A::GapView{T,N,P,Q}, iA::Integer...) where {T,N,P,Q} =
+    # getindex(A.parent, ntuple(d -> iA[Q[d]], ndims(A.parent))...)
+    # getindex(A.parent, ntuple(d -> getproperty(iA, Q[d]), ndims(A.parent))...)
+    # getindex(A.parent, map(q -> getproperty(iA, q), Q)...)
+
+@generated function Base.getindex(A::GapView{T,N,P,Q}, iA::Integer...) where {T,N,P,Q}
+    iP = [:( getproperty(iA, $q ) ) for q in Q ]
+    :( getindex(A.parent, $(iP...)) )
+end
+
+Base.getindex(A::GapView{T,N,P,Q}, i::Int) where {T,N,P,Q} =
+    IndexStyle(A) === IndexLinear() ? A.parent[i] : error("no can do")
 
 Base.getindex(A::GapView, I::CartesianIndex) = getindex(A, Tuple(I)...)
+# Base.getindex(A::GapView{T,N,P,Q}, I::CartesianIndex) where {T,N,P,Q} =
+#     getindex(A.parent, CartesianIndex(map(q -> getproperty(I.I, q), Q)))
+
+# @generated function Base.getindex(A::GapView{T,N,P,Q}, I::CartesianIndex) where {T,N,P,Q}
+#     iP = [:( getproperty(I.I, $q ) ) for q in Q ]
+#     :( getindex(A.parent, CartesianIndex($(iP...))) )
+# end
 
 Base.parent(A::GapView) = A.parent
+
+# Base.IndexStyle(::GapView{T,N,P}) where {T,N,P} = nonzero_sorted(P) ? IndexLinear() : IndexCartesian()
+# @generated Base.IndexStyle(::GapView{T,N,P}) where {T,N,P} = nonzero_sorted(P) ? :(IndexLinear()) : :(IndexCartesian())
+@generated Base.IndexStyle(::Type{<:GapView{T,N,P}}) where {T,N,P} = nonzero_sorted(P) ? :(IndexLinear()) : :(IndexCartesian())
+
+nonzero_sorted(P::Tuple) = issorted(tuple_filter(!iszero, P))
+# nonzero_sorted(::Val{P}) where {P} = issorted(tuple_filter(!iszero, P))
+
 
 # function GapView(A::NamedDimsArray, inds::NTuple{N,Symbol}) where {N}
 #     namesA = NamedDims.names(A)
@@ -250,12 +316,14 @@ The size of the two new indices should be given afterwards;
 you may write `(2,:)` etc.
 
     split(A, (:i, :j), B)
-    split(A, :i => (:i, :_))
+    split(A, :i => (:i, :_)) == split(A, :i)
 
 The sizes can also bew read from another `B::NamedDimsArray` with indices `i,j`.
 If they are omitted, then the second size will be 1.
 """
 Base.split(A::NamedUnion, (i,j), sz=nothing) = split(A, _join(i,j) => (i,j), sz)
+
+Base.split(A::NamedUnion, i::Symbol) = split(A, i => (i,:_), nothing)
 
 function Base.split(A::NamedUnion, pair::Pair{Symbol,<:Tuple}, sizes::Tuple)
     d0 = dim(A, pair.first)
