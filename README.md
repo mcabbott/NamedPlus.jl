@@ -1,5 +1,7 @@
 # NamedPlus.jl
 
+[![Build Status](https://travis-ci.org/mcabbott/NamedPlus.jl.svg?branch=master)](https://travis-ci.org/mcabbott/NamedPlus.jl)
+
 This package exists to try out ideas for [NamedDims.jl](https://github.com/invenia/NamedDims.jl),
 to see what's useful. `NamedDims` is a lightweight package which attaches names to the 
 dimensions/indices/axes of arrays. 
