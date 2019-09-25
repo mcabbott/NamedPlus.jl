@@ -21,12 +21,16 @@ Here's what works:
 ```julia
 using NamedPlus, LinearAlgebra
 
-# ===== convenience macros
+# ===== convenience
 @named begin
     v{j} = rand(3)
     m{i,j} = rand(2,3)    # define m whose type includes (:i, :j)
     t{i,j,k} = rand(2,3,4)
+    z{z} = randn(26)
 end;
+
+similar(t, Int, :k)     # length == size(t, :k)
+similar(m, z, :i, :z)   # names (:i, :z), size (2, 26)
 
 # ===== broadcasting
 w = m ./ v'                   # these indices line up, but m ./ v is an error
