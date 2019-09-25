@@ -66,7 +66,7 @@ end
     t1 = join(t, :i,:k)
     @test names(t1) == (:j, Symbol("i⊗k"))
 
-    @test_broken size(split(m, :i)) == (2, 1, 3)
+    @test size(split(m, :i)) == (2, 1, 3)
     @test size(split(m, :i => (:i1, :i2))) == (2, 1, 3)
     @test size(split(m, :i => (:i1, :i2), (1,2))) == (1, 2, 3)
     @test size(split(m, :i)) == (2, 1, 3)
