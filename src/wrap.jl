@@ -171,4 +171,42 @@ diagonal(x::NamedUnion, tup::Tuple{Symbol, Symbol}) =
     NamedDimsArray{tup}(Diagonal(unname(x)))
 
 
+#################### SIMILAR ####################
+
+"""
+    similar(A::NamedUnion, names)
+    similar(A,B,C, names)
+
+Creates a new `NamedDimsArray` like `A`, with the given names,
+and sizes read off from the matching dimensions of `A`, or `B`, etc.
+"""
+Base.similar(xyz::NTuple{M,NamedUnion}, names::NTuple{N,Symbol}) where {M,N} =
+    NamedDimsArray{names}(similar(unname(first(xyz)), map(i -> first_size(i, xyz...), names)))
+
+# Same with eltype T specified
+Base.similar(xyz::NTuple{M,NamedUnion}, T::Type, names::NTuple{N,Symbol}) where {M,N} =
+    NamedDimsArray{names}(similar(unname(first(xyz)), T, map(i -> first_size(i, xyz...), names)))
+
+first_size(i, x, yz...) = Base.sym_in(i, names(x)) ? size(x,i) : first_size(i, yz...)
+first_size(i::Symbol) = error("none of the supplied arrays had name :$i")
+
+for m=1:10
+    syms = [ Symbol(:x_,n) for n in 1:m ]
+    args = [ :($(syms[n])::NamedUnion) for n in 1:m ]
+    @eval begin
+        Base.similar($(args...), names::NTuple{N,Symbol}) where {N} =
+            similar(($(syms...),), names)
+
+        Base.similar($(args...), i::Symbol, names::Symbol...) where {N} =
+            similar(($(syms...),), (i,names...))
+
+        # Same with eltype T specified
+        Base.similar($(args...), T::Type, names::NTuple{N,Symbol}) where {N} =
+            similar(($(syms...),), T, names)
+
+        Base.similar($(args...), T::Type, i::Symbol, names::Symbol...) where {N} =
+            similar(($(syms...),), T, (i,names...))
+    end
+end
+
 ####################

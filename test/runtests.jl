@@ -3,6 +3,7 @@ using Test, NamedPlus
 v = NamedDimsArray(rand(3), :j)
 m = NamedDimsArray(rand(2,3), (:i,:j))
 t = NamedDimsArray(rand(2,3,4), (:i,:j,:k))
+z = NamedDimsArray(rand(26), :z)
 
 @testset "macro & names" begin
 
@@ -15,6 +16,14 @@ t = NamedDimsArray(rand(2,3,4), (:i,:j,:k))
     @test Base.names(t2,2) == :j
 
 end
+@testset "similar" begin
+
+    @test size(similar(t, :k)) == (4,)
+    @test eltype(similar(t, Int, :k)) == Int
+    @test size(similar(m, z, :i, :z)) == (2,26)
+    @test names(similar(v, m, t, (:i, :k))) == (:i, :k)
+
+end
 @testset "unname with names" begin
 
     @test unname(m, (:j, :i)) === transpose(parent(m))
@@ -22,8 +31,8 @@ end
     @test unname(t, (:i,:j,:k)) === parent(t)
     @test unname(t, (:i,:k,:j)) === PermutedDimsArray(parent(t), (1,3,2))
 
-    m2 = permutenames(m, (:i, :k, :j))
-    @test names(m2) == (:i, :_, :j)
+    @test names(permutenames(m, (:i, :k, :j))) == (:i, :_, :j)
+    @test names(permutenames(v, (:i, :j, :k))) == (:_, :j)
 
 end
 @testset "broadcasting by name" begin
@@ -45,6 +54,11 @@ end
     @test names(rename(m, :j => :k)) == (:i, :k)
     @test names(rename(m, (:a, :b))) == (:a, :b)
 
+    using NamedPlus: _prime
+
+    @test (@inferred (() -> prime(:a))() ;true)
+    @test (@inferred (() -> _prime((:i,:j,:k), Val(1)))() ;true)
+
 end
 @testset "split & join" begin
 
@@ -55,6 +69,7 @@ end
     @test_broken size(split(m, :i)) == (2, 1, 3)
     @test size(split(m, :i => (:i1, :i2))) == (2, 1, 3)
     @test size(split(m, :i => (:i1, :i2), (1,2))) == (1, 2, 3)
+    @test size(split(m, :i)) == (2, 1, 3)
 
     @test t == split(join(t, (:i,:j) => :ij), :ij => (:i,:j), (2,3))
 
@@ -66,6 +81,11 @@ end
     t2[1,1,1] = 99
     @test t1[1,1,1] == 99
     @test t[1,1,1] != 99
+
+    using NamedPlus: _join, _split
+
+    @test (@inferred (() -> _join(:i, :j))() ;true)
+    @test (@inferred (() -> _split(_join(:i, :j)))() ;true)
 
 end
 
