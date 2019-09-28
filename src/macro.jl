@@ -126,7 +126,8 @@ function ex_cast(lhs, ind, rhs, mod)
     # low = Meta.lower(mod, rhs)
     newright = MacroTools.postwalk(rhs) do x
         if x isa Symbol && !startswith(string(x),'.')
-            return :( NamedPlus._permutenames($x, $tup) )
+            # return :( NamedPlus._permutenames($x, $tup) )
+            return :( NamedPlus.TransmuteDims.Transmute{$tup}($x) )
         end
         x
     end

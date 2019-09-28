@@ -1,10 +1,4 @@
-#################### WRAPPERS ####################
-# replacing https://github.com/invenia/NamedDims.jl/pull/64
-
-function Base.PermutedDimsArray(nda::NamedDimsArray{L,T,N}, perm::NTuple{N,Symbol}) where {L,T,N}
-    numerical_perm = dim(nda, perm)
-    PermutedDimsArray(nda, numerical_perm)
-end
+#################### UNION ####################
 
 """
 `NamedMat{T,S}` is a union type for `NamedDimsArray` and wrappers containing this,
@@ -36,13 +30,17 @@ const NamedVecOrMat{T,S} = Union{NamedVec, NamedMat}
 """
 `NamedUnion{T,S}` is a union type for `NamedDimsArray{L,T,N,S}`
 and wrappers containing this, such as `PermutedDimsArray`, `Diagonal`, `Transpose` etc.
+Maybe it should have the dimension number somehow, `NamedUnion{T,N,S}`?
 """
 const NamedUnion{T,S} = Union{
     NamedDimsArray{L,T,N,S} where {L,N},
     NamedMat{T,S},
     PermutedDimsArray{T,N,P,Q,NamedDimsArray{L,T,N,S}} where {L,N,P,Q},
+    TransmutedDimsArray{T,N,P,Q,NamedDimsArray{L,T,M,S},X} where {L,N,M,P,Q,X},
     }
 
+# Reading off the names, and removing them, are now done by recursive functions.
+#=
 using TupleTools
 
 NamedDims.names(::Type{Diagonal{T,NamedDimsArray{L,T,1,S}}}) where {L,T,S} = (L[1], L[1])
@@ -55,12 +53,15 @@ NamedDims.names(::Type{Adjoint{T,NamedDimsArray{L,T,2,S}}}) where {L,T,S} = (L[2
 
 NamedDims.names(::Type{PermutedDimsArray{T,N,P,Q,NamedDimsArray{L,T,N,S}}}) where {L,T,N,S,P,Q} =
     TupleTools.permute(L, P)
+NamedDims.names(::Type{TransmutedDimsArray{T,N,P,Q,NamedDimsArray{L,T,N,S},X}}) where {L,T,N,S,P,Q,X} =
+    error("not yet")
 
 
 NamedDims.unname(x::Diagonal{T,NamedDimsArray{L,T,N,S}}) where {L,T,N,S} = Diagonal(x.diag.data)
 NamedDims.unname(x::Transpose{T,NamedDimsArray{L,T,N,S}}) where {L,T,N,S} = Transpose(x.parent.data)
 NamedDims.unname(x::Adjoint{T,NamedDimsArray{L,T,N,S}}) where {L,T,N,S} = Adjoint(x.parent.data)
 NamedDims.unname(x::PermutedDimsArray{T,N,P,Q,NamedDimsArray{L,T,N,S}}) where {L,T,N,S,P,Q} = PermutedDimsArray(x.parent.data, P)
+NamedDims.unname(x::TransmutedDimsArray{T,N,P,Q,NamedDimsArray{L,T,N,S},X}) where {L,T,N,S,P,Q,X} = TransmutedDimsArray(x.parent.data, P) # ??
 
 
 # https://docs.julialang.org/en/v1/stdlib/LinearAlgebra/index.html#Special-matrices-1
@@ -85,6 +86,54 @@ end
 #     p = parent(x)
 #     typeof(p) === typeof(x) ? ntuple(_->:_, ndims(x)) : NamedDims.names(p)
 # end
+=#
+
+#################### PERMUTE ####################
+
+function Base.PermutedDimsArray(nda::NamedUnion, perm::Tuple{Vararg{Symbol}})
+    PermutedDimsArray(nda, dim(thenames(nda), perm))
+end
+
+function TransmuteDims.TransmutedDimsArray(nda::NamedUnion, perm::Tuple{Vararg{Symbol}})
+    list = thenames(nda)
+    prime = map(i -> NamedDims.dim_noerror(list,i), perm)
+    TransmutedDimsArray(nda, prime)
+end
+
+# this is enough to make Transmute{sym} work, I think:
+# No, A here is a type not an instance, thenames doesn't work :(
+#=
+@inline function TransmuteDims.sanitise_zero(perm::NTuple{N,Symbol}, A) where {N}
+    # list = thenames(A)
+    list = NamedDims.names(A)
+    map(i -> NamedDims.dim_noerror(list,i), perm)
+end
+=#
+
+# This works but may not be fast yet:
+
+function TransmuteDims.Transmute{perm}(data::A) where {A<:NamedUnion, perm}
+    M = ndims(A)
+    T = eltype(A)
+    if perm isa Tuple{Vararg{Symbol}}
+        list = thenames(data)
+        prime = map(i -> NamedDims.dim_noerror(list,i), perm)
+        perm_plus = TransmuteDims.sanitise_zero(prime, data)
+    else
+        perm_plus = TransmuteDims.sanitise_zero(perm, data)
+    end
+    real_perm = TransmuteDims.filter(!iszero, perm_plus)
+    length(real_perm) == M && isperm(real_perm) || throw(ArgumentError(
+        string(real_perm, " is not a valid permutation of dimensions 1:", M,
+            ". Obtained by filtering input ",perm)))
+
+    N = length(perm_plus)
+    iperm = TransmuteDims.invperm_zero(perm_plus, M)
+    L = issorted(real_perm)
+
+    # :( TransmutedDimsArray{$T,$N,$perm_plus,$iperm,$A,$L}(data) )
+    TransmutedDimsArray{T,N,perm_plus,iperm,A,L}(data)
+end
 
 #################### CANONICALISE ####################
 

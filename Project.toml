@@ -9,6 +9,7 @@ MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 NamedDims = "356022a1-0364-5f58-8944-0da4b18d706f"
 Requires = "ae029012-a4dd-5104-9daa-d747884805df"
 Strided = "5e0ebb24-38b0-5f93-81fe-25c709ecae67"
+TransmuteDims = "24ddb15e-299a-5cc3-8414-dbddc482d9ca"
 TupleTools = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
 
 [compat]

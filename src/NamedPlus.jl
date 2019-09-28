@@ -1,13 +1,17 @@
 module NamedPlus
 
 using NamedDims
-export NamedDims, NamedDimsArray, unname, dim
+export NamedDims, NamedDimsArray, dim, unname # NamedDims's functions, untouched
 
-using LinearAlgebra
+export NamedUnion, thenames, nameless # this package's functions
+
+using LinearAlgebra, TransmuteDims
 
 #################### CODE ####################
 
 include("wrap.jl") # must be first, defn NamedUnion
+
+include("recursion.jl") # thenames, nameless
 
 include("view.jl") # permutenames, split/join
 
@@ -17,19 +21,11 @@ include("maths.jl") # contract, svd
 
 #################### BASE.NAMES ####################
 
-Base.names(x::NamedUnion) = NamedDims.names(x)
+Base.names(x::NamedUnion) = thenames(x)
 
-Base.names(x::NamedUnion, d::Int) = NamedDims.names(x, d)
+Base.names(x::NamedUnion, d::Int) = thenames(x, d)
 
-NamedDims.names(x, d::Int) = d <= ndims(x) ? NamedDims.names(x)[d] : :_
-
-# Base.getproperty(x::NamedUnion, s::Symbol) =
-#     s===:names ? names(x) :
-#     getfield(x, s)
-
-# Base.getproperty(x::NamedDimsArray, s::Symbol) =
-#     s===:parent ? parent(x) :
-#     getfield(x, s)
+thenames(x, d::Int) = d <= ndims(x) ? thenames(x)[d] : :_
 
 #################### BASE.SHOW ####################
 
@@ -46,7 +42,6 @@ summary_pair(name::Symbol, axis) =
     axis===Base.OneTo(1) ? string(name,"=1") :
     first(axis)==1 ? string(name,"≤",length(axis)) :
     string(name,"∈",first(axis),":",maximum(axis))
-
 
 #################### THE END ####################
 

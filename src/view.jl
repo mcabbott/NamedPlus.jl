@@ -1,15 +1,5 @@
 #################### UNWRAPPING ####################
 ## https://github.com/invenia/NamedDims.jl/issues/65
-# function NamedDims.unname(nda::NamedUnion, names::NTuple{N, Symbol}) where {N}
-#     perm = dim(nda, names)
-#     if perm == ntuple(identity, N)
-#         return unname(nda)
-#     elseif perm == (2,1) # note this doesn't catch recursive transpose
-#         return transpose(unname(nda))
-#     else
-#         return PermutedDimsArray(unname(nda), perm)
-#     end
-# end
 
 """
     unname(A::NamedDimsArray, names) -> AbstractArray
@@ -24,42 +14,6 @@ and thus it allows `names` longer than `ndims(A)`, which will insert trivial dim
 NamedDims.unname(A::NamedUnion, names::NTuple{N, Symbol}) where {N} =
     parent(permutenames(A, names))
 
-#=
-@inline NamedDims.unname(A::NamedUnion, target::NTuple{N,Symbol} where N) =
-    _unname(A, Val(target))
-
-@generated function _unname(A::NamedUnion{T}, vt::Val{target}) where {T, target}
-    # canonise TODO
-    namesA = NamedDims.names(A)
-    perm = _perm(Val(namesA), Val(target))
-    :(_unname2(A, Val($perm)))
-end
-@generated function _unname2(A, ::Val{perm}) where {perm}
-
-    if perm == ntuple(identity, ndims(A))
-        return unname(A)
-
-    elseif (perm == (2,1) || perm == (0,1)) && T <: Number
-        return :( transpose(unname(A)) )
-
-    elseif !(0 in perm)
-        return :( PermutedDimsArray(unname(A), perm) )
-
-    # elseif perm is sorted && typeof(parent) <: Array?
-    #     then reshape
-
-    else
-        # L = map(n -> n in namesA ? n : :_, targ)
-        return :( GapView(unname(A), $perm) )
-    end
-end
-
-@generated function _perm(::Val{namesA}, ::Val{target}) where {namesA, target}
-    fullperm = map(n -> NamedDims.dim_noerror(namesA, n), target)
-    perm, targ = chop_zeros(fullperm, target)
-    perm
-end
-=#
 
 #################### PERMUTENAMES ####################
 
@@ -71,8 +25,8 @@ export permutenames, permutenames2
 This is a bit like `permutedims`, but does not copy the data to a new array in the given order,
 and instead wraps it in `Transpose` or `PemutedDimsArray` as nedded.
 
-If `A` has fewer dimensions than `names`, then trivial dimensions are inserted via `GapView`,
-which have name `:_`. But trailing dimensions are omitted.
+If `A` has fewer dimensions than `names`, then trivial dimensions are inserted
+using a `TransmutedDimsArray`.
 
 #= This is the default `lazy=true` behaviour. Keyword `lazy=false` will copy only if needed
 to avoid these wrappers. This is not exactly `permutedims(A, names)`, as that always copies. =#
@@ -84,175 +38,24 @@ function permutenames(A::NamedUnion{T}, target::NTuple{N,Symbol}; lazy::Bool=tru
     B = canonise(A)
 
     namesB = NamedDims.names(B)
-    fullperm = map(n -> NamedDims.dim_noerror(namesB, n), target)
-
-    perm, targ = chop_zeros(fullperm, target)
+    perm = map(n -> NamedDims.dim_noerror(namesB, n), target)
 
     if perm == ntuple(identity, ndims(B))
         return B
 
     elseif (perm == (2,1) || perm == (0,1)) && T <: Number
-        # return lazy ? transpose(B) : permutedims(B)
         return transpose(B)
 
     elseif 0 in perm
-        L = map(n -> n in namesB ? n : :_, targ)
-        out = NamedDimsArray{L}(GapView(unname(B), perm))
-        # return lazy ? out : copy(out)
+        L = map(n -> Base.sym_in(n, namesB) ? n : :_, target)
+        out = NamedDimsArray{L}(Transmute{perm}(unname(B)))
         return out
 
     else
-        # C = lazy ? PermutedDimsArray(unname(B), perm) : permutedims(unname(B), perm)
         C = PermutedDimsArray(unname(B), perm)
         return NamedDimsArray{targ}(C)
     end
 end
-
-chop_zeros(perm, targ) = last(perm)==0 ? chop_zeros(perm[1:end-1], targ[1:end-1]) : (perm, targ)
-
-# Identical except passes other things through
-_permutenames(A::NamedUnion, n::NTuple{N,Symbol} where N) = permutenames(A, n)
-_permutenames(A, n::NTuple{N,Symbol} where N) = A
-
-#=
-# Construction of GapView via permutenames2 is now fast, permutenames slow:
-
-import NamedPlus: permutenames, permutenames2, NamedUnion, chop_zeros, GapView, Q_from_P
-AB = NamedDimsArray(rand(1:10, 2,3), (:a,:b))
-@btime (AB -> permutenames(AB, (:b, :z, :a, :c)))($AB) # 6 μs
-@btime (AB -> permutenames2(AB, (:b, :z, :a, :c)))($AB) # 4.2 μs
-@btime (AB -> permutenames2(AB, Val((:b, :z, :a, :c))))($AB) # 10ns
-@btime (GapView(unname($AB), (2, 0, 1))) # 4.4 μs
-
-# But broadcasting with GapView is slow, I don't know why:
-
-A_B = permutenames2(AB, Val((:a, :c, :b))) |> unname
-ArB = reshape(AB, 2,1,3)
-C = similar(A_B);
-
-@btime $C .= 2 .* $A_B # 10x slower!
-@btime $C .= 2 .* $ArB
-
-@btime $A_B[4]
-@btime $ArB[4]
-
-@btime $A_B[1,1,1]
-@btime $ArB[1,1,1]
-
-@btime axes($A_B)
-@btime axes($ArB)
-
-Base.materialize!(C, Base.broadcasted(*, 2, A_B))
-=#
-
-"""
-    permutenames2(A, target)
-
-Faster `@generated` version of `permutenames`, works out `P` & `Q` for `GapView` in advance.
-"""
-permutenames2(A::NamedUnion, target::NTuple{N,Symbol} where N) =
-    permutenames2(A, Val(target))
-
-@generated function permutenames2(A::NamedUnion{T}, ::Val{target}) where {T, target}
-    # canonise TODO
-
-    namesA = NamedDims.names(A)
-    fullperm = map(n -> NamedDims.dim_noerror(namesA, n), target)
-
-    perm, targ = chop_zeros(fullperm, target)
-
-    if perm == ntuple(identity, ndims(A))
-        return A
-
-    elseif (perm == (2,1) || perm == (0,1)) && T <: Number
-        return :( transpose(A) )
-
-    elseif !(0 in perm)
-        return :( NamedDimsArray{targ}(PermutedDimsArray(unname(A), $perm)) )
-
-    # elseif perm is sorted && typeof(parent) <: Array?
-    #     then reshape
-
-    else
-        L = map(n -> n in namesA ? n : :_, targ)
-        # return :( NamedDimsArray{$L}(GapView(unname(A), $perm)) )
-        Q = Q_from_P(perm, ndims(A))
-        N = length(targ)
-        B, C = gensym(:un), gensym(:gap)
-        return quote
-            $B = unname(A)
-            $C = GapView{$T,$N,$perm,$Q,typeof($B)}($B)
-            NamedDimsArray{$L}($C)
-        end
-    end
-end
-
-
-# Maybe this should have error checks & setindex!
-# And should be in NamedUnion & names & unname etc as another wrapper?
-struct GapView{T,N,P,Q,S} <: AbstractArray{T,N}
-    parent::S
-end
-
-GapView(A::S) where {S<:AbstractArray{T,N}} where {T,N} =
-    GapView{T,N,ntuple(identity,N),ntuple(identity,N),S}(A)
-
-GapView(A::S, P::NTuple{N,Int}) where {S<:AbstractArray{T,M}} where {T,N,M} =
-    GapView{T,N,zero_nothing(P),Q_from_P(Val(P), Val(M)),S}(A)
-
-zero_nothing(P::Tuple) = map(n -> n===Nothing ? 0 : n, P)
-
-Q_from_P(P::Tuple, M::Int) = ntuple(d -> findfirst(isequal(d),P), M)
-@generated Q_from_P(::Val{P}, ::Val{M}) where {P,M} =
-    ntuple(d -> findfirst(isequal(d),P), M)
-
-Base.size(A::GapView{T,N,P}) where {T,N,P} =
-    # ntuple(d -> P[d]==0 ? 1 : size(A.parent,P[d]), N)
-    ntuple(d -> P[d]==0 ? 1 : size(A.parent,getproperty(P,d)), N)
-
-Base.length(A::GapView) = length(A.parent)
-
-# Base.getindex(A::GapView{T,N,P,Q}, iA::Integer...) where {T,N,P,Q} =
-    # getindex(A.parent, ntuple(d -> iA[Q[d]], ndims(A.parent))...)
-    # getindex(A.parent, ntuple(d -> getproperty(iA, Q[d]), ndims(A.parent))...)
-    # getindex(A.parent, map(q -> getproperty(iA, q), Q)...)
-
-@generated function Base.getindex(A::GapView{T,N,P,Q}, iA::Integer...) where {T,N,P,Q}
-    iP = [:( getproperty(iA, $q ) ) for q in Q ]
-    :( getindex(A.parent, $(iP...)) )
-end
-
-Base.getindex(A::GapView{T,N,P,Q}, i::Int) where {T,N,P,Q} =
-    IndexStyle(A) === IndexLinear() ? A.parent[i] : error("no can do")
-
-Base.getindex(A::GapView, I::CartesianIndex) = getindex(A, Tuple(I)...)
-# Base.getindex(A::GapView{T,N,P,Q}, I::CartesianIndex) where {T,N,P,Q} =
-#     getindex(A.parent, CartesianIndex(map(q -> getproperty(I.I, q), Q)))
-
-# @generated function Base.getindex(A::GapView{T,N,P,Q}, I::CartesianIndex) where {T,N,P,Q}
-#     iP = [:( getproperty(I.I, $q ) ) for q in Q ]
-#     :( getindex(A.parent, CartesianIndex($(iP...))) )
-# end
-
-Base.parent(A::GapView) = A.parent
-
-# Base.IndexStyle(::GapView{T,N,P}) where {T,N,P} = nonzero_sorted(P) ? IndexLinear() : IndexCartesian()
-# @generated Base.IndexStyle(::GapView{T,N,P}) where {T,N,P} = nonzero_sorted(P) ? :(IndexLinear()) : :(IndexCartesian())
-@generated Base.IndexStyle(::Type{<:GapView{T,N,P}}) where {T,N,P} = nonzero_sorted(P) ? :(IndexLinear()) : :(IndexCartesian())
-
-nonzero_sorted(P::Tuple) = issorted(tuple_filter(!iszero, P))
-# nonzero_sorted(::Val{P}) where {P} = issorted(tuple_filter(!iszero, P))
-
-
-# function GapView(A::NamedDimsArray, inds::NTuple{N,Symbol}) where {N}
-#     namesA = NamedDims.names(A)
-#     P = map(n -> NamedDims.dim_noerror(namesA, n), inds)
-#     L = map(n -> n in namesA ? n : :_, inds)
-#     NamedDimsArray{L}(GapView(unname(A), P))
-# end
-#
-# GapView(f, inds::NTuple{N,Symbol}) where {N} = f
-
 
 
 #################### SPLIT / COMBINE ####################
