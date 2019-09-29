@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/mcabbott/NamedPlus.jl.svg?branch=master)](https://travis-ci.org/mcabbott/NamedPlus.jl)
 
-This package exists to try out ideas for [NamedDims.jl](https://github.com/invenia/NamedDims.jl),
+This package exists to try out ideas for (or for use with) [NamedDims.jl](https://github.com/invenia/NamedDims.jl)
 to see what's useful. `NamedDims` is a lightweight package which attaches names to the 
 dimensions/indices/axes of arrays. 
 
@@ -120,5 +120,33 @@ Not so sure this is the right idea, but `contract(U,S,V; dims=:svd)` needs a nam
 It would be easy to make `svd(m; dims)` control the order (i.e. which is `U`), 
 but making `svd(m; name)` control the name of the new index would be harder. 
 
-I hope it's obvious that none of this is well-tested, or reliable in any way! 
-Some parts are slow, too.
+There's also a draft of some ideas for attaching ranges to axes in [src/ranges.jl](src/ranges.jl).
+This is done by adding an another independent wrapper type.
+You can index by the ranges using round brackets instead,
+although not much apart from that works right now:
+
+```julia
+include("ranges.jl")
+
+R = Wrap(rand(1:99, 3,4), ['a', 'b', 'c'], 10:10:40)
+N = Wrap(rand(1:99, 3,4), obs = ['a', 'b', 'c'], iter = 10:10:40)
+
+R('a', 40) == R[3:3, 4]
+N('a', 40) == N[3:3, 4]
+
+N(obs='a', iter=40) == N[obs=3:3, iter=4]
+N(obs='a') == N('a') == N[]
+```
+
+Links:
+* Older packages [AxisArrays](https://github.com/JuliaArrays/AxisArrays.jl) and 
+  [NamedArrays](https://github.com/davidavdav/NamedArrays.jl),
+  also [DimArrays](https://github.com/mcabbott/DimArrays.jl), 
+  and [AxisArrayPlots](https://github.com/jw3126/AxisArrayPlots.jl) .
+* Discussion at [AxisArraysFuture](https://github.com/JuliaCollections/AxisArraysFuture/issues/1):
+  most developed is [DimensionalData](https://github.com/rafaqz/DimensionalData.jl).
+  `RangeWrap` is a bit like [IndexedDims](https://github.com/invenia/IndexedDims.jl),
+  which uses [AcceleratedArrays](https://github.com/andyferris/AcceleratedArrays.jl) for ranges.
+  Also [AbstractIndices](https://github.com/Tokazama/AbstractIndices.jl).
+* Python's [xarray](http://xarray.pydata.org/en/stable/), Harvard NLP's [NamedTensor](http://nlp.seas.harvard.edu/NamedTensor). 
+

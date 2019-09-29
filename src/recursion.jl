@@ -1,19 +1,21 @@
 #################### RECURSIVE UNWRAPPING ####################
 
-export HasNames, hasnames
+export True, hasnames
 
 using LinearAlgebra
 
-struct HasNames end
+struct True <: Integer end
+Base.promote_rule(::Type{T}, ::Type{True}) where {T<:Number} = T
+Base.convert(::Type{T}, ::True) where T<:Number = convert(T, true)
 
 """
     hasnames(A)
 
-Returns `HasNames()` if `A::NamedDimsArray`
+Returns `True()` if `A::NamedDimsArray`
 or any wrapper around that which defines `parent`,
 otherwise `false`.
 """
-hasnames(x::NamedDimsArray) = HasNames()
+hasnames(x::NamedDimsArray) = True()
 
 hasnames(x::AbstractArray) = x === parent(x) ? false : hasnames(parent(x))
 
@@ -27,7 +29,7 @@ you will need to define `outmap(x, names) = outernames`.
 thenames(x::NamedDimsArray{names}) where {names} = names
 
 function thenames(x::AbstractArray)
-    # hasnames(x) === HasNames() || return default_names(x)
+    # hasnames(x) === True() || return default_names(x)
     p = parent(x)
     x === p && return default_names(x)
     return outmap(x, thenames(p), :_)
@@ -68,7 +70,7 @@ nameless(x) = x
 
 # nameless(x::AbstractArray) = x === parent(x) ? x : rewraplike(x, parent(x), nameless(parent(x)))
 function nameless(x::AbstractArray)
-    hasnames(x) === HasNames() || return x
+    hasnames(x) === True() || return x
     p = parent(x)
     p === x && return x
     return rewraplike(x, p, nameless(p))
