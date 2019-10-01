@@ -1,6 +1,6 @@
 #################### RECURSIVE UNWRAPPING ####################
 
-export True, hasnames
+export True, hasnames, getnames
 
 using LinearAlgebra
 
@@ -8,37 +8,46 @@ struct True <: Integer end
 Base.promote_rule(::Type{T}, ::Type{True}) where {T<:Number} = T
 Base.convert(::Type{T}, ::True) where T<:Number = convert(T, true)
 
-"""
+names_doc = """
+    names(A::NamedDimsArray) -> Tuple
+    names(A, d) -> Symbol
+
+`Base.names` acts as the accessor function.
+
     hasnames(A)
+    getnames(A)
+    getnames(A, d)
 
-Returns `True()` if `A::NamedDimsArray`
-or any wrapper around that which defines `parent`,
-otherwise `false`.
-"""
-hasnames(x::NamedDimsArray) = True()
+These work recursively through wrappers.
+`hasnames(A) == True()` or `false`.
 
-hasnames(x::AbstractArray) = x === parent(x) ? false : hasnames(parent(x))
-
-"""
-    thenames(A)
-
-Returns dimension names of `A`.
 For any wrapper type which changes the order / number of dimensions,
 you will need to define `outmap(x, names) = outernames`.
 """
-thenames(x::NamedDimsArray{names}) where {names} = names
 
-function thenames(x::AbstractArray)
+@doc names_doc
+Base.names(x::NamedUnion) = getnames(x)
+Base.names(x::NamedUnion, d::Int) = getnames(x, d)
+
+@doc names_doc
+hasnames(x::NamedDimsArray) = True()
+hasnames(x::AbstractArray) = x === parent(x) ? false : hasnames(parent(x))
+
+@doc names_doc
+function getnames(x::AbstractArray)
     # hasnames(x) === True() || return default_names(x)
     p = parent(x)
     x === p && return default_names(x)
-    return outmap(x, thenames(p), :_)
+    return outmap(x, getnames(p), :_)
 end
+getnames(x::NamedDimsArray{names}) where {names} = names
+getnames(x, d::Int) = d <= ndims(x) ? getnames(x)[d] : :_
 
 default_names(x::AbstractArray) = ntuple(_ -> :_, ndims(x))
 
 """
     outmap(A, tuple, default)
+
 Maps the names/ranges tuple from `A.parent` to that for `A`.
 """
 outmap(A, tup, z) = tup
@@ -68,7 +77,6 @@ nameless(x::NamedDimsArray) = parent(x)
 
 nameless(x) = x
 
-# nameless(x::AbstractArray) = x === parent(x) ? x : rewraplike(x, parent(x), nameless(parent(x)))
 function nameless(x::AbstractArray)
     hasnames(x) === True() || return x
     p = parent(x)
@@ -86,18 +94,6 @@ and then uses that to act on `z`. Hopefully that's the right constructor!
 For troublesome wrapper types you may need to overload this.
 """
 @generated function rewraplike(x::AT, y::PT, z::UT) where {AT <: AbstractArray{T,N}, PT, UT} where {T,N}
-    #=
-    cnt = 0
-    FT = MacroTools.postwalk(AT) do ex
-        @show ex
-        if ex == PT
-            cnt += 1
-            return UT
-        end
-        ex
-    end
-    cnt == 1 || error("failed to re-wrapping function for this type, please define rewraplike($AT)")
-    =#
     FT = Meta.parse(replace(string(AT), string(PT) => string(UT)))
     :( $FT(z) )
 end

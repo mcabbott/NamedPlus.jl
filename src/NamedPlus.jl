@@ -19,14 +19,6 @@ include("macro.jl")
 
 include("maths.jl") # contract, svd
 
-#################### BASE.NAMES ####################
-
-Base.names(x::NamedUnion) = thenames(x)
-
-Base.names(x::NamedUnion, d::Int) = thenames(x, d)
-
-thenames(x, d::Int) = d <= ndims(x) ? thenames(x)[d] : :_
-
 #################### BASE.SHOW ####################
 
 function Base.summary(io::IO, x::NamedUnion)
