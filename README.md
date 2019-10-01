@@ -131,11 +131,11 @@ include("ranges.jl")
 R = Wrap(rand(1:99, 3,4), ['a', 'b', 'c'], 10:10:40)
 N = Wrap(rand(1:99, 3,4), obs = ['a', 'b', 'c'], iter = 10:10:40)
 
-R('a', 40) == R[3:3, 4]
-N('a', 40) == N[3:3, 4]
+R('c', 40) == R[3, 4]
+N('c', 40) == N[3, 4]
 
-N(obs='a', iter=40) == N[obs=3:3, iter=4]
-N(obs='a') == N('a') == N[]
+N(obs='a', iter=40) == N[obs=1, iter=4]
+N(obs='a') == N('a') == N[1,:]
 ```
 
 Links:
@@ -143,8 +143,10 @@ Links:
   [NamedArrays](https://github.com/davidavdav/NamedArrays.jl),
   also [DimArrays](https://github.com/mcabbott/DimArrays.jl), 
   and [AxisArrayPlots](https://github.com/jw3126/AxisArrayPlots.jl) .
-* Discussion at [AxisArraysFuture](https://github.com/JuliaCollections/AxisArraysFuture/issues/1):
-  most developed is [DimensionalData](https://github.com/rafaqz/DimensionalData.jl).
+  And [LabelledArrays](https://github.com/JuliaDiffEq/LabelledArrays.jl) too!
+* Discussion at [AxisArraysFuture](https://github.com/JuliaCollections/AxisArraysFuture/issues/1), and [AxisArrays#84](https://github.com/JuliaArrays/AxisArrays.jl/issues/84). 
+* New packages: [NamedDims](https://github.com/invenia/NamedDims.jl) used here.
+  Most like AxisArrays is [DimensionalData](https://github.com/rafaqz/DimensionalData.jl).
   `RangeWrap` is a bit like [IndexedDims](https://github.com/invenia/IndexedDims.jl),
   which uses [AcceleratedArrays](https://github.com/andyferris/AcceleratedArrays.jl) for ranges.
   Also [AbstractIndices](https://github.com/Tokazama/AbstractIndices.jl).

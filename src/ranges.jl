@@ -1,6 +1,7 @@
 # This isn't yet included, needs to be pasted into the REPL
 
-using NamedPlus, LinearAlgebra, TransmuteDims
+using NamedPlus, LinearAlgebra
+using TransmuteDims#master
 using NamedPlus: NamedUnion, hasnames, outmap, True
 
 #################### RANGEWRAP ####################
@@ -49,8 +50,8 @@ end
 end
 
 Base.@propagate_inbounds function Base.getindex(A::RangeWrap; kw...) # untested!
-    hasnames(A) || error("must have names!")
-    ds = NamedDims.dims(getnames(A), keys(kw))
+    hasnames(A) === True() || error("must have names!")
+    ds = NamedDims.dim(getnames(A), keys(kw))
     inds = ntuple(d -> d in ds ? values(kw)[d] : (:), ndims(A))
     Base.getindex(A, inds...)
 end
@@ -200,7 +201,7 @@ const PlusUnion = Union{NamedUnion, RangeUnion}
 
 #################### ROUND BRACKETS ####################
 
-if VERSION >= v"1.3"
+if VERSION >= v"1.3.0-rc2.0"
     (A::RangeUnion)(args...) = get_from_args(A, args...)
     (A::RangeUnion)(;kw...) = get_from_kw(A, kw)
 end
@@ -276,8 +277,8 @@ allunique(x::Symbol) = true
 """
     findindex(key, range)
 
-This is `findfirst` when `range::AbstractRange` or `key::Symbol`,
-otherwise it is `findall`.
+This is essentially `findfirst(isequal(key), range)`,
+use `All(key)` for findall.
 
 TODO allow things like 'a':'z' perhaps? [:a, :b]?
 """
@@ -285,8 +286,9 @@ findindex(a, r::AbstractRange) = findfirst(isequal(a), r)
 findindex(a::Symbol, r::AbstractArray) = findfirst(isequal(a), r)
 
 findindex(a::Colon, r::AbstractArray) = Colon()
+findindex(a::Colon, r::AbstractRange) = Colon()
 
-findindex(a, r) = findall(isequal(a), r)
+findindex(a, r) = findfirst(isequal(a), r)
 
 #################### SELECTORS ####################
 
@@ -405,6 +407,9 @@ rangeless(Transpose(C))
 
 nameless(Transpose(C)) # rewrapping fails as RangeWrap not defined within NamedPlus. Damn.
 
-# C(j=:b) # crashes julia?
+C(j=:b) # no longer crashes julia!
+
+Transpose(C)(j=:b) # ERROR: type Transpose has no field data
+# But what should it mean?
 
 =#

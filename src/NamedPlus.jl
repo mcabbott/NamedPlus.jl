@@ -37,9 +37,8 @@ summary_pair(name::Symbol, axis) =
 
 #################### THE END ####################
 
-@static if VERSION < v"1.3"
-    Base.mod(i::Integer, r::Base.OneTo) = mod1(i, last(r))
-    Base.mod(i::Integer, r::AbstractUnitRange{<:Integer}) = mod(i-first(r), length(r)) + first(r)
-end
+mod(args...) = Base.mod(args...)
+mod(i::Integer, r::Base.OneTo) = mod1(i, last(r))
+mod(i::Integer, r::AbstractUnitRange{<:Integer}) = mod(i-first(r), length(r)) + first(r)
 
 end # module
