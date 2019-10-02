@@ -28,13 +28,6 @@ and cannot write into an existing array. If `C` is a `NamedDimsArray` then it wi
 its labels permuted (lazily) to match `i,j,y,x` before broadcasting.
 Ordinary arrays assumed to already match this order.
 
-    D = @named softmax(A, dims={i})
-    S = @named sum(f, A, dropdims={i})
-
-Curly brackets here tell the macro to treat this like `sum(A, dims=:i)`, but this works on
-functions which `NamedDims` hasn't extended.
-Allows `fun(f, A; dims)` but not `fun(A; dims) do x ...`, nor other keywords.
-
     @named *′ = contract{k}      # *′(xs...) = Contract{(:k,)}(xs...)
 
 For the special word `contract`, this defines a function as shown. Using a decorated
@@ -69,12 +62,6 @@ _named(input_ex, mod) =
 
         # Special words like contract must come before nameless
         @capture(ex, g_ = contract{ijk__}) && return ex_fun(g, :Contract, ijk)
-
-        if @capture(ex, fun_(args__, A_, dims={ijk__})) || @capture(ex, fun_(args__, A_; dims={ijk__}))
-            return ex_dims(args, fun, A, ijk)
-        elseif @capture(ex, fun_(args__, A_, dropdims={ijk__})) || @capture(ex, fun_(args__, A_; dropdims={ijk__}))
-            return ex_dropdims(args, fun, A, ijk)
-        end
 
         # @capture(ex, A_{ijk__} = B_) && return ex_addname(A, ijk, B) # clash!
         # @capture(ex, {ijk__} = B_)   && return ex_addname(gensym(:def), ijk, B)
@@ -126,35 +113,12 @@ function ex_cast(lhs, ind, rhs, mod)
     # low = Meta.lower(mod, rhs)
     newright = MacroTools.postwalk(rhs) do x
         if x isa Symbol && !startswith(string(x),'.')
-            # return :( NamedPlus._permutenames($x, $tup) )
             return :( NamedPlus.TransmuteDims.Transmute{$tup}($x) )
         end
         x
     end
     return :( $lhs = NamedDims.NamedDimsArray($newright, $tup) )
 end
-
-function ex_dims(args, fun, A, ijk)
-    inds = map(QuoteNode, ijk)
-    @gensym A′
-    quote
-        $A′ = $A # pulled out in case this is a calculation
-        $fun($(args...), $A′; dims=NamedPlus._un_onetuple(NamedDims.dim($A′, ($(inds...),))) )
-    end
-end
-
-function ex_dropdims(args, fun, A, ijk)
-    inds = map(QuoteNode, ijk)
-    @gensym A′ dims
-    quote
-        $A′ = $A # pulled out in case this is a calculation
-        $dims = NamedPlus._un_onetuple(NamedDims.dim($A′, ($(inds...),)))
-        dropdims($fun($(args...), $A′; dims=$dims); dims=$dims)
-    end
-end
-
-_un_onetuple(x) = x
-_un_onetuple(x::Tuple{<:Any}) = first(x)
 
 function ex_tensor(ex, left=nothing)
     out = quote end
@@ -192,35 +156,5 @@ function ex_tensor(ex, left=nothing)
     end
 end
 
-
-#################### DROPDIMS ####################
-
-export @dropdims
-
-using MacroTools
-
-"""
-    @dropdims sum(A; dims=1)
-
-Macro which wraps such reductions in `dropdims(...; dims=1)`.
-Allows `sum(A; dims=1) do x stuff end`,
-and works on whole blocks of code like `@views`.
-Does not handle other keywords, like `reduce(...; dims=..., init=...)`.
-"""
-macro dropdims(ex)
-    esc(_dropdims(ex))
-end
-
-_dropdims(ex) =
-    MacroTools.postwalk(ex) do x
-        if @capture(x, red_(args__, dims=d_)) || @capture(x, red_(args__; dims=d_))
-            :( dropdims($x; dims=$d) )
-        elseif @capture(x, dropdims(red_(args__, dims=d1_); dims=d2_) do z_ body_ end) ||
-               @capture(x, dropdims(red_(args__; dims=d1_); dims=d2_) do z_ body_ end)
-            :( dropdims($red($z -> $body, $(args...); dims=$d1); dims=$d2) )
-        else
-            x
-        end
-    end
 
 ####################
