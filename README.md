@@ -6,6 +6,7 @@ This package exists to try out ideas for (or for use with) [NamedDims.jl](https:
 to see what's useful. `NamedDims` is a lightweight package which attaches names to the 
 dimensions/indices/axes of arrays. 
 
+<!--
 This can be used to check a calculation which is written to work on ordinary arrays.
 The names should be propagated through to the answer, and this happens at compile-time.
 Any operation which combines incompatible dimension names should give an error.
@@ -20,6 +21,9 @@ The first goal here is mostly to push in this third direction.
 
 The second goal is to see how well named dimensions can be made to work with other wrappers,
 with some combination of union types & trait-like functions.
+-->
+
+### Names
 
 Here's what works: 
 
@@ -45,11 +49,43 @@ names(z) == (:i, :k, :j)
 m′ = permutenames(m, (:i, :k, :j)) # by calling this, which wraps GapView{T,3,(1,0,2),(1,3),...
 names(m′) == (:i, :_, :j)
 
+# ===== rename, unname
+mk = rename(m, :j => :k) # replace an index
+tm = rand()<0.5 ? m : copy(transpose(m))
+unname(tm, (:i, :j))     # un-named array, always 2 x 3, sometimes ::Transpose
+
+prime(m, first) # names (:i′, :j)
+prime(t, 2)     # (:i, :j′, :k)
+
+# ===== reshaping
+join(t, (:i,:j) => :ij) # (:ij, :k) size (6, 4)
+t′ = join(t, :i,:k)     # (:j, Symbol("i⊗k")) size (3, 8)
+
+t′′ = split(t′, (:i,:k), (2,4)) # (:j, :i, :k) size (3, 2, 4)
+t′′[1,1,1] = 99; t′ # changes t′ but not t, as non-adjacent join needed permutedims
+
+# ===== wrapper types
+d = Diagonal(v)        # 3×3 Diagonal{Float64,NamedDimsArray{(:j,), ...
+getnames(d)            # (:j, :j)
+nameless(d)            # looks inside
+diagonal(v, (:j, :j′)) # NamedDimsArray{(:j, :j′), ..., Diagonal{...
+diagonal(v)[j=2]       # fixes both indices, not yet for Diagonal(v)
+
+p = PermutedDimsArray(t, (:k,:i,:j))
+getnames(p)            # (:k, :i, :j)
+summary(p)             # "k≤4 × i≤2 × j≤3 PermutedDimsArray{...
+```
+
+### Maths
+
+This contraction stuff may be broken right now.
+
+```julia
 # ===== contract(v, m; dims=:j) should insert transposes
 m * v
 m' ⊙ t # operator to contract neibouring indices, like python's @
 
-@named *ⱼ = contract{j} # define infix contraction funciton over :j  <-- BROEKN
+@named *ⱼ = contract{j} # define infix contraction funciton over :j
 v *ⱼ m           # index i
 m *ⱼ diagonal(v) # indices i,j
 
@@ -61,43 +97,6 @@ using OMEinsum # allows contraction with a 3-tensor
 t *ⱼ m           # indices i,k
 t *ⱼ diagonal(v) # indices i,k
 t *ⱼ diagonal(v, (:j, :j′)) # indices i,k,j′
-
-# ===== wrapper types
-d = Diagonal(v)        # 3×3 Diagonal{Float64,NamedDimsArray{(:j,), ...
-getnames(d)            # (:j, :j)
-nameless(d)            # looks inside
-diagonal(v, (:j, :j′)) # NamedDimsArray{(:j, :j′), ..., Diagonal{...
-diagonal(v)[j=2]       # fixes both indices, not yet for Diagonal(v)
-
-p = PermutedDimsArray(t, (3,1,2))
-getnames(p)            # (:k, :i, :j)
-summary(p)             # "k≤4 × i≤2 × j≤3 PermutedDimsArray{...
-p == PermutedDimsArray(t, (:k,:i,:j)) # works too, same wrapper
-t == canonise(p)       # unwraps
-
-# ===== reshaping
-join(t, (:i,:j) => :ij) # (:ij, :k) size (6, 4)
-t′ = join(t, :i,:k)     # (:j, Symbol("i⊗k")) size (3, 8)
-
-t′′ = split(t′, (:i,:k), (2,4)) # (:j, :i, :k) size (3, 2, 4)
-t′′[1,1,1] = 99; t′ # changes t′ but not t, as non-adjacent join needed permutedims
-
-# ===== rename, unname
-mk = rename(m, :j => :k) # replace an index
-tm = rand()<0.5 ? m : copy(transpose(m))
-unname(tm, (:i, :j))     # un-named array, always 2 x 3, sometimes ::Transpose
-
-prime(m, first) # names (:i′, :j)
-prime(t, 2)     # (:i, :j′, :k)
-
-# ===== reduction
-@dropdims sum(t, dims=:j) # (:i, :k)
-@named sum(m, dims={j})     # wraps functions ignorant of names
-@named sum(m, dropdims={j}) # ... and wraps that in dropdims
-
-using Distances # not extended by NamedDims
-@named pairwise(Euclidean(), m, dims={j}) # is this what we want?
-# @named D{i,i′} = pairwise(Euclidean(), m, dims={j}) # weird errors...
 
 # ===== tensor notation
 using TensorOperations # macro unwraps, and permutes if needed using Strided 
@@ -113,7 +112,7 @@ s[:i]       # could be s.U or s.Vt depending on order of m's indices
 s[:j]       # always :j and :svd, in some order
 s[:svd]     # always s.S
 
-contract(s.U, s.S, s.V; dims=:svd) # contract three objects, leaving indices i & j ## BROKEN
+contract(s.U, s.S, s.V; dims=:svd) # contract three objects, leaving indices i & j
 
 @named U = s[:j]{j,svd} # sure of having (j,svd) order, always size 3 x 2, sometimes ::Transpose
 ```
@@ -122,6 +121,8 @@ SVD is adapted from [PR#24](https://github.com/invenia/NamedDims.jl/pull/24).
 Not so sure this is the right idea, but `contract(U,S,V; dims=:svd)` needs a name to work on.
 It would be easy to make `svd(m; dims)` control the order (i.e. which is `U`), 
 but making `svd(m; name)` control the name of the new index would be harder. 
+
+### Ranges
 
 Finally there's also a draft of some ideas for attaching ranges to axes, 
 by adding an another independent wrapper type, `RangeWrap`,
@@ -145,6 +146,9 @@ getranges(Transpose(N))  # ditto
 
 nameless(Transpose(N))   # re-constructs without NamedDimsArray
 
+N2 = NamedDimsArray(nameless(N), getnames(N)) # exchange the order
+N2(obs='a', iter=40) == N2[obs=1, iter=4]     # only on Julia 1.3 & up
+
 # ===== selectors
 N(iter=Near(12.5))
 N(iter=Between(7,23))
@@ -166,7 +170,11 @@ S(s = s13) == A(s13)  # uses findall(isequal(s1), s)
 A(s = All(s13))       # uses findall(isequal(s1), s), which gets accelerated
 ```
 
-Links:
+I hope it's obvious that this is all experimental, poorly tested, not to be relied on, etc.
+But it does come with a money-back guarantee!
+
+### Links
+
 * Older packages [AxisArrays](https://github.com/JuliaArrays/AxisArrays.jl) and 
   [NamedArrays](https://github.com/davidavdav/NamedArrays.jl),
   also [DimArrays](https://github.com/mcabbott/DimArrays.jl), 

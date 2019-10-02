@@ -1,6 +1,6 @@
 #################### RANGEWRAP ####################
 
-export ranges, getranges, hasranges, Wrap, RangeWrap
+export ranges, getranges, hasranges, rangeless, Wrap, RangeWrap
 
 # mutable struct RangeWrap{T,N,AT,RT,MT} <: AbstractArray{T,N}
 #     data::AT
