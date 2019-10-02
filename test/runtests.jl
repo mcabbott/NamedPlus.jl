@@ -35,6 +35,7 @@ end
     @test names(permutenames(v, (:i, :j, :k))) == (:_, :j)
 
 end
+#= broken without TransmuteDims master
 @testset "broadcasting by name" begin
 
     @test names(m ./ v') == (:i, :j)
@@ -45,6 +46,7 @@ end
     @test z == t .+ m ./ v'
 
 end
+=#
 @testset "rename & prime" begin
 
     @test prime(:z) == :z′

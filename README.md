@@ -16,7 +16,10 @@ for clarity. Things like `A[μ=1, ν=2]` and `sum(A; dims=:μ)` already work.
 
 Or, going further, you can try to write all operations working only on the names, 
 to make results independent of the storage order of the data.
-The goal here is mostly to push in this third direction. 
+The first goal here is mostly to push in this third direction. 
+
+The second goal is to see how well named dimensions can be made to work with other wrappers,
+with some combination of union types & trait-like functions.
 
 Here's what works: 
 
@@ -120,10 +123,9 @@ Not so sure this is the right idea, but `contract(U,S,V; dims=:svd)` needs a nam
 It would be easy to make `svd(m; dims)` control the order (i.e. which is `U`), 
 but making `svd(m; name)` control the name of the new index would be harder. 
 
-There's also a draft of some ideas for attaching ranges to axes in [src/ranges.jl](src/ranges.jl).
-This is done by adding an another independent wrapper type.
-You can index by the ranges using round brackets instead,
-although not much apart from that works right now:
+Finally there's also a draft of some ideas for attaching ranges to axes in [src/ranges.jl](src/ranges.jl).
+This is done by adding an another independent wrapper type, which ought to commute with `NamedDims`.
+You can index by the ranges using round brackets instead. Here's what works:
 
 ```julia
 include("ranges.jl")
@@ -148,13 +150,13 @@ R('a', Index[2]) # back to square brackets
 
 # ===== ranges can be any AbstractArray
 using AcceleratedArrays
-str = [string(gensym()) for _=1:100];
+str = [string(gensym()) for _=1:20];
 s13 = str[13]
-S = Wrap((1:100) .+ im, s=str)
-A = Wrap((1:100) .+ im, s=accelerate(str, UniqueHashIndex))
+S = Wrap((1:20) .+ im, s=str)
+A = Wrap((1:20) .+ im, s=accelerate(str, UniqueHashIndex))
 
-A(s13) == A(s13)  # uses findall(isequal(s1), s)
-A(All(s13))       # uses findall(isequal(s1), s), which gets accelerated
+S(s = s13) == A(s13)  # uses findall(isequal(s1), s)
+A(s = All(s13))       # uses findall(isequal(s1), s), which gets accelerated
 ```
 
 Links:
