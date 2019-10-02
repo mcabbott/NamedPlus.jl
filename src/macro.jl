@@ -7,7 +7,7 @@ using MacroTools
 
 """
     @named A{i,j} = rand(2,3)    # A ≈ NamedDimsArray(rand(2,3), (:i, :j))
-    @named B = A{j,i}            # B = unname(A, (:j, :i))
+    @named B = A{j,i}            # B = nameless(A, (:j, :i))
     @named C{x,y} = A{j,i}       # C = NamedDimsArray(B, (:x, :y))
 
 The `@named` macro can be used as a shorter way to add or remove names.
@@ -67,7 +67,7 @@ _named(input_ex, mod) =
 
         @capture(ex, Z_{xyz__} = A_{ijk__}) && return ex_rename(Z, xyz, A, ijk)
 
-        # Special words like contract must come before unname
+        # Special words like contract must come before nameless
         @capture(ex, g_ = contract{ijk__}) && return ex_fun(g, :Contract, ijk)
 
         if @capture(ex, fun_(args__, A_, dims={ijk__})) || @capture(ex, fun_(args__, A_; dims={ijk__}))
@@ -79,12 +79,12 @@ _named(input_ex, mod) =
         # @capture(ex, A_{ijk__} = B_) && return ex_addname(A, ijk, B) # clash!
         # @capture(ex, {ijk__} = B_)   && return ex_addname(gensym(:def), ijk, B)
 
-        # This unname thing must come last
+        # This nameless thing must come last
         if @capture(ex, A_ = B_{ijk__})
             B in (
                 :NamedDimsArray, :(NamedDims.NamedDimsArray), :(NamedPlus.Contract),
                 ) ||
-            return ex_unname(A, B, ijk)
+            return ex_nameless(A, B, ijk)
         end
         ex
     end
@@ -93,9 +93,9 @@ quotenodes(ijk::Vector) = map(quotenodes, ijk)
 quotenodes(s::Symbol) = QuoteNode(s)
 quotenodes(q::QuoteNode) = q
 
-function ex_unname(A, B, ijk)
+function ex_nameless(A, B, ijk)
     stup = :( ($(quotenodes(ijk)...),) )
-    :( $A = NamedDims.unname($B, $stup) )
+    :( $A = NamedPlus.nameless($B, $stup) )
 end
 
 function ex_addname(A, ijk, B)
@@ -106,7 +106,7 @@ end
 function ex_rename(Z, xyz, A, ijk)
     stup = :( ($(quotenodes(ijk)...),) )
     stup2 = :( ($(map(QuoteNode,xyz)...),) )
-    :( $Z = NamedDims.NamedDimsArray(NamedDims.unname($A, $stup), $stup2) )
+    :( $Z = NamedDims.NamedDimsArray(NamedPlus.nameless($A, $stup), $stup2) )
 end
 
 function ex_fun(f, s, ijk)
@@ -165,7 +165,7 @@ function ex_tensor(ex, left=nothing)
             append!(out.args, (quote
                 if $A isa NamedPlus.NamedUnion
                     $Aperm = dim($A, ($(inds...),))
-                    $Aname = Base.permutedims(TensorOperations.Strided.maybestrided(NamedPlus.unname($A)), $Aperm)
+                    $Aname = Base.permutedims(TensorOperations.Strided.maybestrided(NamedPlus.nameless($A)), $Aperm)
                 else
                     $Aname = $A
                 end

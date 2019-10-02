@@ -49,7 +49,7 @@ names(m′) == (:i, :_, :j)
 m * v
 m' ⊙ t # operator to contract neibouring indices, like python's @
 
-@named *ⱼ = contract{j} # define infix contraction funciton over :j
+@named *ⱼ = contract{j} # define infix contraction funciton over :j  <-- BROEKN
 v *ⱼ m           # index i
 m *ⱼ diagonal(v) # indices i,j
 
@@ -64,13 +64,13 @@ t *ⱼ diagonal(v, (:j, :j′)) # indices i,k,j′
 
 # ===== wrapper types
 d = Diagonal(v)        # 3×3 Diagonal{Float64,NamedDimsArray{(:j,), ...
-names(d)               # (:j, :j)
+getnames(d)            # (:j, :j)
 nameless(d)            # looks inside
 diagonal(v, (:j, :j′)) # NamedDimsArray{(:j, :j′), ..., Diagonal{...
 diagonal(v)[j=2]       # fixes both indices, not yet for Diagonal(v)
 
 p = PermutedDimsArray(t, (3,1,2))
-names(p)               # (:k, :i, :j)
+getnames(p)            # (:k, :i, :j)
 summary(p)             # "k≤4 × i≤2 × j≤3 PermutedDimsArray{...
 p == PermutedDimsArray(t, (:k,:i,:j)) # works too, same wrapper
 t == canonise(p)       # unwraps
@@ -123,24 +123,27 @@ Not so sure this is the right idea, but `contract(U,S,V; dims=:svd)` needs a nam
 It would be easy to make `svd(m; dims)` control the order (i.e. which is `U`), 
 but making `svd(m; name)` control the name of the new index would be harder. 
 
-Finally there's also a draft of some ideas for attaching ranges to axes in [src/ranges.jl](src/ranges.jl).
-This is done by adding an another independent wrapper type, which ought to commute with `NamedDims`.
+Finally there's also a draft of some ideas for attaching ranges to axes, 
+by adding an another independent wrapper type, `RangeWrap`,
+which ought to commute with `NamedDims`.
 You can index by the ranges using round brackets instead. Here's what works:
 
 ```julia
-include("ranges.jl")
+R = RangeWrap(rand(1:99, 3,4), (['a', 'b', 'c'], 10:10:40))
+N = Wrap(rand(1:99, 3,4), obs = ['a', 'b', 'c'], iter = 10:10:40) # combined constructor
 
-R = Wrap(rand(1:99, 3,4), ['a', 'b', 'c'], 10:10:40)
-N = Wrap(rand(1:99, 3,4), obs = ['a', 'b', 'c'], iter = 10:10:40)
-
+# ===== access
 R('c', 40) == R[3, 4]
-N('c', 40) == N[3, 4]
+R('b') == R[2,:]
 
 N(obs='a', iter=40) == N[obs=1, iter=4]
 N(obs='a') == N('a') == N[1,:]
 
-getnames(Transpose(N)) # unwraps, (:iter, :obs)
-getranges(Transpose(N))
+# ===== recursion
+getnames(Transpose(N))   # unwraps to dig out (:iter, :obs)
+getranges(Transpose(N))  # ditto
+
+nameless(Transpose(N))   # re-constructs without NamedDimsArray
 
 # ===== selectors
 N(iter=Near(12.5))
@@ -175,5 +178,6 @@ Links:
   `RangeWrap` is a bit like [IndexedDims](https://github.com/invenia/IndexedDims.jl),
   which uses [AcceleratedArrays](https://github.com/andyferris/AcceleratedArrays.jl) for ranges.
   Also [AbstractIndices](https://github.com/Tokazama/AbstractIndices.jl).
-* Python's [xarray](http://xarray.pydata.org/en/stable/), Harvard NLP's [NamedTensor](http://nlp.seas.harvard.edu/NamedTensor). 
+* Python's [xarray](http://xarray.pydata.org/en/stable/), 
+  Harvard NLP's [NamedTensor](http://nlp.seas.harvard.edu/NamedTensor). 
 

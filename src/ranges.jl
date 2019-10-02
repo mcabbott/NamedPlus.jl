@@ -1,20 +1,12 @@
-# This isn't yet included, needs to be pasted into the REPL
-
-# module RangeWrappers
-
-using NamedPlus, LinearAlgebra
-using TransmuteDims#master
-using NamedPlus: NamedUnion, hasnames, outmap, True, getnames, summary_pair
-
 #################### RANGEWRAP ####################
 
-export ranges, getranges, hasranges, Wrap
+export ranges, getranges, hasranges, Wrap, RangeWrap
 
-mutable struct RangeWrap{T,N,AT,RT,MT} <: AbstractArray{T,N}
-    data::AT
-    ranges::RT
-    meta::MT
-end
+# mutable struct RangeWrap{T,N,AT,RT,MT} <: AbstractArray{T,N}
+#     data::AT
+#     ranges::RT
+#     meta::MT
+# end
 
 function RangeWrap(data::AbstractArray{T,N}, ranges::Tuple, meta=nothing) where {T,N}
     @assert length(ranges) == N
@@ -69,6 +61,9 @@ range_view(ranges, inds) = TransmuteDims.filter(r -> ndims(r)>0, view.(ranges, i
 
 Function for constructing either a `NamedDimsArray`, a `RangeWrap`,
 or a nested pair of both. Performs some sanity checks.
+
+When both are present, it makes a `RangeWrap{...,NamedDimsArray{...}}`
+so that it can be callable on Julia < 1.3.
 """
 Wrap(A::AbstractArray, names::Symbol...) =
     NamedDimsArray(A, names)
@@ -77,8 +72,8 @@ Wrap(A::AbstractArray, ranges::Union{AbstractVector,Nothing}...) =
 # Wrap(A::AbstractArray; kw...) =
 #     NamedDimsArray(RangeWrap(A, values(kw.data)), check_names(A,kw.itr))
 Wrap(A::AbstractArray; kw...) =
-    RangeWrap(NamedDimsArray(A, check_names(A,kw.itr)), check_ranges(A, values(kw.data)))
-Wrap(A::AbstractArray) = error("you must give some names, or ranges. Or perhaps you wanted `addmeta`?")
+    RangeWrap(NamedDimsArray(A, check_names(A, kw.itr)), check_ranges(A, values(kw.data)))
+# Wrap(A::AbstractArray) = error("you must give some names, or ranges. Or perhaps you wanted `addmeta`?")
 
 function check_names(A, names)
     ndims(A) == length(names) || error("wrong number of names")
@@ -115,7 +110,7 @@ ranges(x, d::Int) = d <= ndims(x) ? ranges(x)[d] : Base.OneTo(1)
 @doc ranges_doc
 hasranges(x::RangeWrap) = True()
 
-hasranges(x::AbstractArray) = x === parent(x) ? false : hasnames(parent(x))
+hasranges(x::AbstractArray) = x === parent(x) ? false : hasranges(parent(x))
 
 @doc ranges_doc
 function getranges(x::AbstractArray)
@@ -174,35 +169,10 @@ function rangeless(x::AbstractArray)
     hasranges(x) === True() || return x
     p = parent(x)
     p === x && return x
-    return NamedPlus.rewraplike(x, p, rangeless(p))
+    return rewraplike(x, p, rangeless(p))
 end
 
-#################### UNION TYPES ####################
-
-wraps(AT) = [
-    :( Diagonal{<:Any,$AT} ),
-    :( Transpose{<:Any,$AT} ),
-    :( Adjoint{<:Any,$AT} ),
-    :( PermutedDimsArray{<:Any,<:Any,<:Any,<:Any,$AT} ),
-    :( TransmutedDimsArray{<:Any,<:Any,<:Any,<:Any,$AT} )
-]
-
-@eval begin
-    const NamedUnion_maybe_later = Union{
-        NamedDimsArray,
-        RangeWrap{<:Any,<:Any,<:NamedDimsArray},
-        $(wraps(:(<:NamedDimsArray))...),
-        $(wraps(:(<:RangeWrap{<:Any,<:Any,<:NamedDimsArray}))...),
-    }
-    const RangeUnion = Union{
-        RangeWrap,
-        NamedDimsArray{<:Any,<:Any,<:Any,<:RangeWrap},
-        $(wraps(:(<:RangeWrap))...),
-        $(wraps(:(<:NamedDimsArray{<:Any,<:Any,<:Any,<:RangeWrap}))...)
-    }
-end
-
-const PlusUnion = Union{NamedUnion, RangeUnion}
+rewraplike(x::RangeWrap, y, z) = RangeWrap(z, x.ranges, x.meta)
 
 #################### ROUND BRACKETS ####################
 
@@ -307,7 +277,7 @@ findindex(a::AbstractArray, r::AbstractArray) = intersect(a, r)
 # seems a pain to make these pass through [] indexing,
 # perhaps better to reverse: A(3.5, Index(4), "x")
 
-export Near, Between, Index
+export All, Near, Between, Index
 
 selector_doc = """
     All(val)
@@ -366,15 +336,18 @@ Base.getindex(::Type{Index}, i) = Index(i)
 
 findindex(sel::Index, range::AbstractArray) = sel.ind
 
-#################### PIRACY ####################
+#################### NON-PIRACY ####################
 
-Base.findfirst(eq::Base.Fix2{typeof(isequal),Int}, r::Base.OneTo{Int}) =
+findfirst(args...) = Base.findfirst(args...)
+findall(args...) = Base.findall(args...)
+
+findfirst(eq::Base.Fix2{typeof(isequal),Int}, r::Base.OneTo{Int}) =
     1 <= eq.x <= r.stop ? eq.x : nothing
 
-Base.findfirst(eq::Base.Fix2{typeof(isequal),T}, r::AbstractUnitRange{S}) where {T,S} =
+findfirst(eq::Base.Fix2{typeof(isequal),T}, r::AbstractUnitRange{S}) where {T,S} =
     first(r) <= eq.x <= last(r) ? 1+Int(eq.x - first(r)) : nothing
 
-Base.findall(eq::Base.Fix2{typeof(isequal),Int}, r::Base.OneTo{Int}) =
+findall(eq::Base.Fix2{typeof(isequal),Int}, r::Base.OneTo{Int}) =
     1 <= eq.x <= r.stop ? (eq.x:eq.x) : nothing   # 0.03ns
     # 1 <= eq.x <= r.stop ? [eq.x] : nothing        # 26 ns
 
@@ -385,6 +358,12 @@ function Base.push!(A::RangeWrap, x)
     push!(A.data, x)
     A.ranges = (extend_one!!(A.ranges[1]),)
     A
+end
+
+function Base.pop!(A::RangeWrap)
+    out = pop!(A.data)
+    A.ranges = (shorten_one!!(A.ranges[1]),)
+    out
 end
 
 function Base.append!(A::RangeWrap, B)
@@ -412,43 +391,12 @@ extend_by!!(r::AbstractVector) = vcat(r, length(r)+1 : length(r)+n+1)
 append!!(r::Vector, s::AbstractVector) = append!(r,s)
 append!!(r::AbstractVector, s::AbstractVector) = vcat(r,s)
 
+shorten_one!!(r::Base.OneTo) = Base.OneTo(last(r)-1)
+shorten_one!!(r::Vector) = pop!(r)
+shorten_one!!(r::AbstractVector) = r[1:end-1]
+
 #################### PRETTY ####################
 
-function Base.summary(io::IO, x::RangeUnion)
-    if hasnames(x) === True()
-        if ndims(x)==1
-            print(io, length(x),"-element [",summary_pair(getnames(x)[1],axes(x,1)),"] ",typeof(x))
-        else
-            list = [summary_pair(na,ax) for (na,ax) in zip(getnames(x), axes(x))]
-            print(io, join(list," × "), " ",typeof(x))
-        end
-        names = getnames(x)
-    else
-        if ndims(x)==1
-            print(io, length(x),"-element ",typeof(x))
-        else
-            print(io, join(size(x)," × "), " ",typeof(x))
-        end
-        names = Tuple(1:ndims(x))
-    end
-
-    if hasranges(x) === True()
-        ranges = getranges(x)
-        println(io, "\nwith ranges:")
-        for d in 1:ndims(x)
-            println(io, "    ", names[d], " ∈ ", ranges[d])
-        end
-    end
-
-    if getmeta(x) !== nothing
-        println(io, "and meta:")
-        println(io, "    ", repr(getmeta(x)))
-    end
-
-    if hasranges(x) === True()
-        print(io, "and data")
-    end
-end
 
 
 # end # module

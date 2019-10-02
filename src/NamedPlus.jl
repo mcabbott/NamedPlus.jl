@@ -9,9 +9,18 @@ using LinearAlgebra, TransmuteDims
 
 #################### CODE ####################
 
+# Defined here just to include in union types
+mutable struct RangeWrap{T,N,AT,RT,MT} <: AbstractArray{T,N}
+    data::AT
+    ranges::RT
+    meta::MT
+end
+
 include("wrap.jl") # must be first, defn NamedUnion
 
-include("recursion.jl") # thenames, nameless
+include("recursion.jl") # getnames, nameless
+
+include("ranges.jl") # all things RangeWrap
 
 include("view.jl") # permutenames, split/join
 
@@ -21,12 +30,39 @@ include("maths.jl") # contract, svd
 
 #################### BASE.SHOW ####################
 
-function Base.summary(io::IO, x::NamedUnion)
-    if ndims(x)==1
-        print(io, length(x),"-element (",summary_pair(names(x)[1],axes(x,1)),") ",typeof(x))
+function Base.summary(io::IO, x::PlusUnion)
+    if hasnames(x) === True()
+        if ndims(x)==1
+            print(io, length(x),"-element [",summary_pair(getnames(x)[1],axes(x,1)),"] ",typeof(x))
+        else
+            list = [summary_pair(na,ax) for (na,ax) in zip(getnames(x), axes(x))]
+            print(io, join(list," × "), " ",typeof(x))
+        end
+        names = getnames(x)
     else
-        list = [summary_pair(na,ax) for (na,ax) in zip(names(x), axes(x))]
-        print(io, join(list," × "), " ",typeof(x))
+        if ndims(x)==1
+            print(io, length(x),"-element ",typeof(x))
+        else
+            print(io, join(size(x)," × "), " ",typeof(x))
+        end
+        names = Tuple(1:ndims(x))
+    end
+
+    if hasranges(x) === True()
+        ranges = getranges(x)
+        println(io, "\nwith ranges:")
+        for d in 1:ndims(x)
+            println(io, "    ", names[d], " ∈ ", ranges[d])
+        end
+    end
+
+    if getmeta(x) !== nothing
+        println(io, "and meta:")
+        println(io, "    ", repr(getmeta(x)))
+    end
+
+    if hasranges(x) === True()
+        print(io, "and data")
     end
 end
 

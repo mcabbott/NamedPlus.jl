@@ -32,7 +32,7 @@ end
     @test unname(t, (:i,:k,:j)) === PermutedDimsArray(parent(t), (1,3,2))
 
     @test names(permutenames(m, (:i, :k, :j))) == (:i, :_, :j)
-    @test names(permutenames(v, (:i, :j, :k))) == (:_, :j)
+    @test names(permutenames(v, (:i, :j, :k))) == (:_, :j, :_)
 
 end
 #= broken without TransmuteDims master
@@ -97,8 +97,8 @@ using LinearAlgebra, OMEinsum, TensorOperations
 
     d = Diagonal(v)
     @test names(d) == (:j, :j)
-    @test typeof(unname(d)) == Diagonal{Float64,Array{Float64,1}}
-    @test_broken d[j=2] === v[2]
+    @test typeof(nameless(d)) == Diagonal{Float64,Array{Float64,1}}
+    @test_broken d[j=2] === v[2] # indexing of namedunion not yet
     @test canonise(d) === v
 
     d2 = diagonal(v, (:j, :j′))
@@ -125,6 +125,7 @@ end
     end
 
 end
+#= broken
 @testset "generalised contraction" begin
 
     *ⱼ(x...) = NamedPlus.Contract{(:j,)}(x...)
@@ -134,6 +135,7 @@ end
     @test names(t *ⱼ diagonal(v, (:j, :j′))) == (:i,:k,:j′)
 
 end
+=#
 @testset "tensor macro" begin
 
     for f in (identity, transpose, permutedims)

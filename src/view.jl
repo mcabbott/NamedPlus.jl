@@ -28,14 +28,12 @@ and instead wraps it in `Transpose` or `PemutedDimsArray` as nedded.
 If `A` has fewer dimensions than `names`, then trivial dimensions are inserted
 using a `TransmutedDimsArray`.
 
-#= This is the default `lazy=true` behaviour. Keyword `lazy=false` will copy only if needed
-to avoid these wrappers. This is not exactly `permutedims(A, names)`, as that always copies. =#
-
 Note that `canonise(A)` unwraps `Diagonal{...,Vector}` and `Transpose{...,Vector}`
 to have just one index.
 """
-function permutenames(A::NamedUnion{T}, target::NTuple{N,Symbol}; lazy::Bool=true)  where {T,N}
+function permutenames(A::NamedUnion, target::Tuple{Vararg{Symbol}}; lazy::Bool=true)
     B = canonise(A)
+    T = eltype(A)
 
     namesB = NamedDims.names(B)
     perm = map(n -> NamedDims.dim_noerror(namesB, n), target)
@@ -48,12 +46,12 @@ function permutenames(A::NamedUnion{T}, target::NTuple{N,Symbol}; lazy::Bool=tru
 
     elseif 0 in perm
         L = map(n -> Base.sym_in(n, namesB) ? n : :_, target)
-        out = NamedDimsArray{L}(Transmute{perm}(unname(B)))
+        out = NamedDimsArray{L}(Transmute{perm}(nameless(B)))
         return out
 
     else
-        C = PermutedDimsArray(unname(B), perm)
-        return NamedDimsArray{targ}(C)
+        C = PermutedDimsArray(nameless(B), perm)
+        return NamedDimsArray{target}(C)
     end
 end
 
@@ -73,7 +71,7 @@ Base.join(A::NamedUnion, ij::Tuple) = join(A, ij...)
 function Base.join(A::NamedUnion, p::Pair{<:Tuple,Symbol})
     d1, d2 = dim(A, p.first)
 
-    if abs(d1 - d2) == 1 && unname(A) isa StridedArray # is this the right thing?
+    if abs(d1 - d2) == 1 && nameless(A) isa StridedArray # is this the right thing?
         sz = ntuple(ndims(A)-1) do d
             d < min(d1,d2) ? size(A,d) :
             d==min(d1,d2) ? size(A,d1) * size(A,d2) :
@@ -84,7 +82,7 @@ function Base.join(A::NamedUnion, p::Pair{<:Tuple,Symbol})
             d==min(d1,d2) ? p.second :
             names(A, d+1)
         end
-        return NamedDimsArray{nm}(reshape(unname(A), sz))
+        return NamedDimsArray{nm}(reshape(nameless(A), sz))
 
     elseif abs(d1 - d2) == 1
         return join(copy(A), p)
@@ -142,7 +140,7 @@ function Base.split(A::NamedUnion, pair::Pair{Symbol,<:Tuple}, sizes::Tuple)
         d==d0+1 ? pair.second[2] :
         names(A, d-1)
     end
-    NamedDimsArray{nm}(reshape(unname(A), sz))
+    NamedDimsArray{nm}(reshape(nameless(A), sz))
 end
 
 Base.split(A::NamedUnion, pair::Pair{Symbol,<:Tuple}, B::NamedUnion) =
@@ -169,7 +167,7 @@ export rename
     rename(A, names) = NamedDims.rename(A, names)
 
 Discards `A`'s dimension names & replaces with the given ones.
-Exactly equivalent to `NamedDimsArray(unname(A), names)` I think.
+Exactly equivalent to `NamedDimsArray(nameless(A), names)` I think.
 
     rename(A, :i => :j)
     A′, B′ = rename(A, B, :i => :j, :j => :k)
@@ -188,7 +186,7 @@ function rename(nda::NamedUnion, pairs::Pair...)
         end
         return i
     end
-    NamedDimsArray(unname(nda), new)
+    NamedDimsArray(nameless(nda), new)
 end
 
 for n=2:10
@@ -222,17 +220,15 @@ _prime(tup::NTuple{N,Symbol}, ::Val{n}) where {N,n} =
     ntuple(i -> i==n ? prime(tup[i])::Symbol : tup[i], N)
 
 prime(x::NamedUnion, d::Int) =
-    NamedDimsArray{_prime(NamedDims.names(x), Val(d))}(unname(x))
+    NamedDimsArray{_prime(NamedDims.names(x), Val(d))}(nameless(x))
 prime(x::NamedUnion, ::typeof(first)) =
-    NamedDimsArray{_prime(NamedDims.names(x), Val(1))}(unname(x))
+    NamedDimsArray{_prime(NamedDims.names(x), Val(1))}(nameless(x))
 prime(x::NamedUnion, ::typeof(last)) =
-    NamedDimsArray{_prime(NamedDims.names(x), Val(ndims(x)))}(unname(x))
+    NamedDimsArray{_prime(NamedDims.names(x), Val(ndims(x)))}(nameless(x))
 
 prime(x::NamedUnion, s::Symbol) = rename(x, s => prime(s))
 
-prime(x::NamedVec) = rename(x, (prime(NamedDims.name(x)[1]),))
-# prime(x::Diagonal{??}) =
-# prime(x::NamdDimsArray{L,T,N,<:Diagonal{}}) = ??
+# prime(x::NamedVec) = rename(x, (prime(NamedDims.name(x)[1]),)) # hmm.
 
 prime(x::AbstractArray, d) = x
 

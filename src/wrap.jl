@@ -1,5 +1,40 @@
-#################### UNION ####################
+#################### UNION TYPES ####################
 
+wraps(AT) = [
+    :( Diagonal{<:Any,$AT} ),
+    :( Transpose{<:Any,$AT} ),
+    :( Adjoint{<:Any,$AT} ),
+    :( PermutedDimsArray{<:Any,<:Any,<:Any,<:Any,$AT} ),
+    :( TransmutedDimsArray{<:Any,<:Any,<:Any,<:Any,$AT} )
+]
+
+    # Symmetric{T,NamedDimsArray{L,T,N,S}} where {L,N},
+    # Hermitian{T,NamedDimsArray{L,T,N,S}} where {L,N},
+    # UpperTriangular{T,NamedDimsArray{L,T,N,S}} where {L,N},
+    # UnitUpperTriangular{T,NamedDimsArray{L,T,N,S}} where {L,N},
+    # LowerTriangular{T,NamedDimsArray{L,T,N,S}} where {L,N},
+    # UnitLowerTriangular{T,NamedDimsArray{L,T,N,S}} where {L,N},
+    # Tridiagonal{T,NamedDimsArray{L,T,N,S}} where {L,N},
+    # SymTridiagonal{T,NamedDimsArray{L,T,N,S}} where {L,N},
+
+@eval begin
+    const NamedUnion = Union{
+        NamedDimsArray,
+        RangeWrap{<:Any,<:Any,<:NamedDimsArray},
+        $(wraps(:(<:NamedDimsArray))...),
+        $(wraps(:(<:RangeWrap{<:Any,<:Any,<:NamedDimsArray}))...),
+    }
+    const RangeUnion = Union{
+        RangeWrap,
+        NamedDimsArray{<:Any,<:Any,<:Any,<:RangeWrap},
+        $(wraps(:(<:RangeWrap))...),
+        $(wraps(:(<:NamedDimsArray{<:Any,<:Any,<:Any,<:RangeWrap}))...)
+    }
+end
+
+const PlusUnion = Union{NamedUnion, RangeUnion}
+
+#=
 """
 `NamedMat{T,S}` is a union type for `NamedDimsArray` and wrappers containing this,
 such as `Transpose` & `Diagonal`. The object always has `ndims(x)==2`,
@@ -88,23 +123,25 @@ end
 # end
 =#
 
+=#
+
 #################### PERMUTE ####################
 
 function Base.PermutedDimsArray(nda::NamedUnion, perm::Tuple{Vararg{Symbol}})
-    PermutedDimsArray(nda, dim(thenames(nda), perm))
+    PermutedDimsArray(nda, dim(getnames(nda), perm))
 end
 
 function TransmuteDims.TransmutedDimsArray(nda::NamedUnion, perm::Tuple{Vararg{Symbol}})
-    list = thenames(nda)
+    list = getnames(nda)
     prime = map(i -> NamedDims.dim_noerror(list,i), perm)
     TransmutedDimsArray(nda, prime)
 end
 
 # this is enough to make Transmute{sym} work, I think:
-# No, A here is a type not an instance, thenames doesn't work :(
+# No, A here is a type not an instance, getnames doesn't work :(
 #=
 @inline function TransmuteDims.sanitise_zero(perm::NTuple{N,Symbol}, A) where {N}
-    # list = thenames(A)
+    # list = getnames(A)
     list = NamedDims.names(A)
     map(i -> NamedDims.dim_noerror(list,i), perm)
 end
@@ -116,7 +153,7 @@ function TransmuteDims.Transmute{perm}(data::A) where {A<:NamedUnion, perm}
     M = ndims(A)
     T = eltype(A)
     if perm isa Tuple{Vararg{Symbol}}
-        list = thenames(data)
+        list = getnames(data)
         prime = map(i -> NamedDims.dim_noerror(list,i), perm)
         perm_plus = TransmuteDims.sanitise_zero(prime, data)
     else
@@ -211,13 +248,12 @@ but writing `diagonal(m, names)` they can be set.
 """
 diagonal(x) = Diagonal(x)
 diagonal(x::NamedDimsArray{L,T,1}) where {L,T} = NamedDimsArray{(L[1],L[1])}(Diagonal(x.data))
-diagonal(x::NamedMat) where {L,T} = NamedDimsArray{names(x)}(Diagonal(x.data))
+diagonal(x::NamedDimsArray{L,T,2}) where {L,T} = NamedDimsArray{L}(Diagonal(x.data))
+# diagonal(x::NamedMat) where {L,T} = NamedDimsArray{names(x)}(Diagonal(x.data))
 
 diagonal(x::AbstractArray, s::Symbol) = diagonal(x, (s,s))
-diagonal(x::AbstractArray, tup::Tuple{Symbol, Symbol}) =
-    NamedDimsArray{tup}(Diagonal(x))
-diagonal(x::NamedUnion, tup::Tuple{Symbol, Symbol}) =
-    NamedDimsArray{tup}(Diagonal(unname(x)))
+diagonal(x::AbstractArray, tup::Tuple{Symbol, Symbol}) = NamedDimsArray{tup}(Diagonal(x))
+diagonal(x::NamedUnion, tup::Tuple{Symbol, Symbol}) = NamedDimsArray{tup}(Diagonal(nameless(x)))
 
 
 #################### SIMILAR ####################
@@ -230,11 +266,11 @@ Creates a new `NamedDimsArray` like `A`, with the given names,
 and sizes read off from the matching dimensions of `A`, or `B`, etc.
 """
 Base.similar(xyz::NTuple{M,NamedUnion}, names::NTuple{N,Symbol}) where {M,N} =
-    NamedDimsArray{names}(similar(unname(first(xyz)), map(i -> first_size(i, xyz...), names)))
+    NamedDimsArray{names}(similar(nameless(first(xyz)), map(i -> first_size(i, xyz...), names)))
 
 # Same with eltype T specified
 Base.similar(xyz::NTuple{M,NamedUnion}, T::Type, names::NTuple{N,Symbol}) where {M,N} =
-    NamedDimsArray{names}(similar(unname(first(xyz)), T, map(i -> first_size(i, xyz...), names)))
+    NamedDimsArray{names}(similar(nameless(first(xyz)), T, map(i -> first_size(i, xyz...), names)))
 
 first_size(i, x, yz...) = Base.sym_in(i, names(x)) ? size(x,i) : first_size(i, yz...)
 first_size(i::Symbol) = error("none of the supplied arrays had name :$i")
