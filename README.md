@@ -136,6 +136,25 @@ N('c', 40) == N[3, 4]
 
 N(obs='a', iter=40) == N[obs=1, iter=4]
 N(obs='a') == N('a') == N[1,:]
+
+getnames(Transpose(N)) # unwraps, (:iter, :obs)
+getranges(Transpose(N))
+
+# ===== selectors
+N(iter=Near(12.5))
+N(iter=Between(7,23))
+
+R('a', Index[2]) # back to square brackets
+
+# ===== ranges can be any AbstractArray
+using AcceleratedArrays
+str = [string(gensym()) for _=1:100];
+s13 = str[13]
+S = Wrap((1:100) .+ im, s=str)
+A = Wrap((1:100) .+ im, s=accelerate(str, UniqueHashIndex))
+
+A(s13) == A(s13)  # uses findall(isequal(s1), s)
+A(All(s13))       # uses findall(isequal(s1), s), which gets accelerated
 ```
 
 Links:

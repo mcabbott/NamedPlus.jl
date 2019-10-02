@@ -92,6 +92,9 @@ end
 This looks at the type of `x`, replaces the type of `y` with that of `z`,
 and then uses that to act on `z`. Hopefully that's the right constructor!
 For troublesome wrapper types you may need to overload this.
+
+In fact this won't work at all for any type not visible from inside this module.
+Damn. Is there a way around that? `@nameless`?
 """
 @generated function rewraplike(x::AT, y::PT, z::UT) where {AT <: AbstractArray{T,N}, PT, UT} where {T,N}
     FT = Meta.parse(replace(string(AT), string(PT) => string(UT)))

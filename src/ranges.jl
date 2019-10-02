@@ -1,8 +1,10 @@
 # This isn't yet included, needs to be pasted into the REPL
 
+# module RangeWrappers
+
 using NamedPlus, LinearAlgebra
 using TransmuteDims#master
-using NamedPlus: NamedUnion, hasnames, outmap, True
+using NamedPlus: NamedUnion, hasnames, outmap, True, getnames, summary_pair
 
 #################### RANGEWRAP ####################
 
@@ -66,7 +68,7 @@ range_view(ranges, inds) = TransmuteDims.filter(r -> ndims(r)>0, view.(ranges, i
     Wrap(A, i=1:10, j=['a', 'b', 'c'])
 
 Function for constructing either a `NamedDimsArray`, a `RangeWrap`,
-or a nested pair of both.
+or a nested pair of both. Performs some sanity checks.
 """
 Wrap(A::AbstractArray, names::Symbol...) = NamedDimsArray(A, names)
 Wrap(A::AbstractArray, ranges::AbstractArray...) = RangeWrap(A, check_ranges(A, ranges))
@@ -116,7 +118,7 @@ hasranges(x::AbstractArray) = x === parent(x) ? false : hasnames(parent(x))
 function getranges(x::AbstractArray)
     # hasranges(x) === True() || return default_ranges(x)
     p = parent(x)
-    x === parent(x) && return default_ranges(x)
+    x === p && return default_ranges(x)
     return outmap(x, getranges(p), Base.OneTo(1))
 end
 getranges(x::RangeWrap) = x.ranges
@@ -142,10 +144,10 @@ meta(x::RangeWrap) = x.meta
 function getmeta(x::AbstractArray)
     # hasranges(x) === True() || return nothing
     p = parent(x)
-    x === parent(x) && return nothing
-    return getmeta(x)
+    x === p && return nothing
+    return getmeta(p)
 end
-getmeta(x::RangeWrap) = x.ranges
+getmeta(x::RangeWrap) = x.meta
 
 @doc meta_doc
 addmeta(x::RangeWrap, meta) = RangeWrap(x.data, x.ranges, meta)
@@ -215,23 +217,29 @@ except using the contents of the ranges, not the integer indices.
 
 When all `ranges(A)` have distinct `eltype`s,
 then a single index may be used to indicate a slice.
-
-TODO Base.@propagate_inbounds? @boundscheck?
 """
-(A::RangeWrap)(args...) = get_from_args(A, args...)
+@inline (A::RangeWrap)(args...) = get_from_args(A, args...)
 
-function get_from_args(A, args...)
+@inline function get_from_args(A, args...)
     ranges = getranges(A)
 
     if length(args) == ndims(A)
         inds = map((v,r) -> findindex(v,r), args, ranges)
-        return getindex(A.data, inds...)
+        # any(inds .=== nothing) && error("no matching entries found!") # slow...
+        @boundscheck checkbounds(A, inds...)
+        # if allint(i...)
+            return @inbounds getindex(A.data, inds...)
+        # else
+        #     return @inbounds view(A.data, inds...)
+        # end
 
     elseif length(args)==1 && allunique_types(map(eltype, ranges)...)
         d = findfirst(T -> args[1] isa T, eltype.(ranges))
         i = findindex(first(args), ranges[d])
         inds = ntuple(n -> n==d ? i : (:), ndims(A))
-        return view(A, inds...)
+        @boundscheck checkbounds(A, inds...)
+        # return @inbounds view(A, inds...)
+        return @inbounds getindex(A, inds...)
 
     end
 
@@ -249,9 +257,9 @@ end
 
 When you have both names and ranges, you can call `A` with keyword args.
 """
-(A::RangeWrap)(;kw...) = get_from_kw(A, kw)
+@inline (A::RangeWrap)(;kw...) = get_from_kw(A, kw)
 
-function get_from_kw(A, kw)
+@inline function get_from_kw(A, kw)
     hasnames(A) === True() || error("named indexing requires a named object!")
     list = getnames(A)
     issubset(kw.itr, list) || error("some keywords not in list of names!")
@@ -274,21 +282,21 @@ allunique(x::Symbol) = true
 # allunique(x, y...) = (x in y) ? false : allunique(y...)
 # allunique(x) = true
 
+allint(x,y...) = x isa Int ? allint(y...) : false
+allint() = true
+
 """
     findindex(key, range)
 
 This is essentially `findfirst(isequal(key), range)`,
 use `All(key)` for findall.
-
-TODO allow things like 'a':'z' perhaps? [:a, :b]?
 """
-findindex(a, r::AbstractRange) = findfirst(isequal(a), r)
-findindex(a::Symbol, r::AbstractArray) = findfirst(isequal(a), r)
+findindex(a, r::AbstractArray) = findfirst(isequal(a), r)
 
 findindex(a::Colon, r::AbstractArray) = Colon()
-findindex(a::Colon, r::AbstractRange) = Colon()
 
-findindex(a, r) = findfirst(isequal(a), r)
+findindex(a::AbstractArray, r::AbstractArray) = intersect(a, r)
+
 
 #################### SELECTORS ####################
 
@@ -333,39 +341,11 @@ Base.show(io::IO, s::Near{T}) where {T} =
 Base.show(io::IO, s::Between{T}) where {T} =
     print(io, "Between(",s.lo,", ",s.hi,") ::Selector{",T,"}")
 
-# for n in 1:10
-#     pre = [Symbol(:i_,i) for i in 1:n]
-#     @eval begin
-#         Base.getindex(A::RangeWrap, $(pre...), I::Selector, post...) =
-#             selector_getindex(A, $(pre...), I, post...)
-
-#         Base.view(A::RangeWrap, $(pre...), I::Selector, post...) =
-#             selector_view(A, $(pre...), I, post...)
-
-#         Base.setindex!(A::RangeWrap, val, $(pre...), I::Selector, post...) =
-#             selector_setindex!(A, val, $(pre...), I, post...)
-#     end
-# end
-# TODO bounds checking... here, above... not like this:
-# Base.checkindex(::Bool, ::AbstractUnitRange, ::Selector) = nothing
-
-# selector_getindex(A, inds...) = getindex(A, selectorise(A, inds...)...)
-# selector_view(A, inds...) = view(A, selectorise(A, inds...)...)
-# selector_setindex!(A, val, inds...) = setindex(A, val, selectorise(A, inds...)...)
-
-# selectorise(A, inds...) =
-#     map(zip(ranges(A), inds)) do (r,i)
-#         i isa Selector ? findindex(i, r) : i
-#     end # TODO this is slow, it returns an array!
-
-# findindex(sel::At, range::AbstractArray) = findfirst(isequal(sel.val), range)
-# findindex(sel::At, range::AbstractRange) = findfirst(isequal(sel.val), range)
+findindex(sel::All, range::AbstractArray) = findall(isequal(sel.val), range)
 
 findindex(sel::Near, range::AbstractArray) = argmin(map(x -> abs2(x-sel.val), range))
-findindex(sel::Near, range::AbstractRange) = argmin(map(x -> abs2(x-sel.val), range))
 
 findindex(sel::Between, range::AbstractArray) = findall(x -> sel.lo <= x <= sel.hi, range)
-findindex(sel::Between, range::AbstractRange) = findall(x -> sel.lo <= x <= sel.hi, range)
 
 """
     Index[i]
@@ -382,8 +362,62 @@ Base.show(io::IO, s::Index{T}) where {T} = print(io, "Index(",s.ind, ")")
 Base.getindex(::Type{Index}, i) = Index(i)
 
 findindex(sel::Index, range::AbstractArray) = sel.ind
-findindex(sel::Index, range::AbstractRange) = sel.ind
 
+#################### PIRACY ####################
+
+Base.findfirst(eq::Base.Fix2{typeof(isequal),Int}, r::Base.OneTo{Int}) =
+    1 <= eq.x <= r.stop ? eq.x : nothing
+
+Base.findfirst(eq::Base.Fix2{typeof(isequal),T}, r::AbstractUnitRange{S}) where {T,S} =
+    first(r) <= eq.x <= last(r) ? 1+Int(eq.x - first(r)) : nothing
+
+Base.findall(eq::Base.Fix2{typeof(isequal),Int}, r::Base.OneTo{Int}) =
+    1 <= eq.x <= r.stop ? (eq.x:eq.x) : nothing   # 0.03ns
+    # 1 <= eq.x <= r.stop ? [eq.x] : nothing        # 26 ns
+
+#################### PRETTY ####################
+
+function Base.summary(io::IO, x::RangeUnion)
+    if hasnames(x) === True()
+        if ndims(x)==1
+            print(io, length(x),"-element (",summary_pair(getnames(x)[1],axes(x,1)),") ",typeof(x))
+        else
+            list = [summary_pair(na,ax) for (na,ax) in zip(getnames(x), axes(x))]
+            print(io, join(list," × "), " ",typeof(x))
+        end
+        names = getnames(x)
+    else
+        if ndims(x)==1
+            print(io, length(x),"-element ",typeof(x))
+        else
+            print(io, join(size(x)," × "), " ",typeof(x))
+        end
+        names = Tuple(1:ndims(x))
+    end
+    saydata = false
+
+    if hasranges(x) === True()
+        ranges = getranges(x)
+        println(io, "\nwith ranges:")
+        for d in 1:ndims(x)
+            println(io, "    ", names[d], " ∈ ", ranges[d])
+        end
+        saydata = true
+    end
+
+    if getmeta(x) !== nothing
+        println(io, "and meta:")
+        println(io, "    ", repr(getmeta(x)))
+        saydata = true
+    end
+
+    if saydata
+        print(io, "and data")
+    end
+end
+
+
+# end # module
 
 #=
 
@@ -412,4 +446,95 @@ C(j=:b) # no longer crashes julia!
 Transpose(C)(j=:b) # ERROR: type Transpose has no field data
 # But what should it mean?
 
+
+function mysum1(x)
+    out = 0.0
+    for j in axes(x,2)
+        for i in axes(x,1)
+            out += x[i,j]
+        end
+    end
+    out
+end
+function mysum2(x)
+    out = 0.0
+    for j in axes(x,2)
+        for i in axes(x,1)
+            @inbounds out += x[i,j]
+        end
+    end
+    out
+end
+function mysum3(x)
+    out = 0.0
+    for j in axes(x,2)
+        for i in axes(x,1)
+            out += x(i,j)
+        end
+    end
+    out
+end
+function mysum4(x)
+    out = 0.0
+    for j in axes(x,2)
+        for i in axes(x,1)
+            @inbounds out += x(i,j)
+        end
+    end
+    out
+end
+
+M = rand(1000,1000);
+W = Wrap(M, axes(M)...);
+
+@btime mysum1($M) # 1.1 ms
+@btime mysum2($M) # 1.1 ms
+
+@btime mysum1($W) # 1.1 ms
+@btime mysum2($W) # 1.1 ms
+
+@btime mysum3($W) # 1.677 ms
+@btime mysum4($W) # 1.677 ms
 =#
+
+#=
+# After putting this in a module, etc, still get same re-wrapping error:
+using .RangeWrappers: Wrap, rangeless, RangeWrap
+using NamedPlus: getnames
+NamedPlus.rewraplike(x::RangeWrap, y, z) = Main.RangeWrappers.RangeWrap(z, x.ranges) #
+nameless(Transpose(C))
+=#
+
+
+#=
+# Tests with AcceleratedArrays
+# Summary is that it can speed up All() lookups.
+
+ii = sort(rand(1:25, 100));
+D = Wrap(ii .+ (1:100) .* im; i=ii)
+j = ii[50]
+@btime $D($j)          # 481.267 ns           --> 23.970 ns
+@btime $D(i = All($j)) # 295.579 ns           --> 252.365 ns
+@btime findall(isequal($j), $ii) # 214.571 ns --> 180.571 ns
+
+using AcceleratedArrays
+ii_acc = accelerate(ii, SortIndex);
+D_acc = Wrap(ii .+ (1:100) .* im; i=ii_acc);
+@btime $D_acc($j)          # 484.118 ns       --> 29.265 ns
+@btime $D_acc(i = All($j)) # 131.719 ns
+@btime findall(isequal($j), $ii_acc) # 56.227 ns
+
+bb = [string(gensym()) for _ = 1:100];
+bb_acc = accelerate(bb, UniqueHashIndex);
+bb1 = bb[50]
+@btime findfirst(isequal($bb1), $bb)     # 326.094 ns
+@btime findall(isequal($bb1), $bb)       # 786.616 ns
+@btime findfirst(isequal($bb1), $bb_acc) # 327.374 ns
+@btime findall(isequal($bb1), $bb_acc)   #  21.499 ns
+BB = Wrap(1:100, bb);
+BB_acc = Wrap(1:100, bb_acc);
+@btime $BB(All($bb1))         # 824.897 ns
+@btime $BB_acc(All($bb1))     #  56.804 ns
+
+=#
+
