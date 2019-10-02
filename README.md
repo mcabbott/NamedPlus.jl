@@ -148,6 +148,10 @@ N(iter=Between(7,23))
 
 R('a', Index[2]) # back to square brackets
 
+# ===== mutation
+V = Wrap([3,5,7,11], μ=10:10:40)
+push!(V, 13) # now μ ∈ 10:10:50
+
 # ===== ranges can be any AbstractArray
 using AcceleratedArrays
 str = [string(gensym()) for _=1:20];

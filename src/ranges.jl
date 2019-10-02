@@ -10,7 +10,7 @@ using NamedPlus: NamedUnion, hasnames, outmap, True, getnames, summary_pair
 
 export ranges, getranges, hasranges, Wrap
 
-struct RangeWrap{T,N,AT,RT,MT} <: AbstractArray{T,N}
+mutable struct RangeWrap{T,N,AT,RT,MT} <: AbstractArray{T,N}
     data::AT
     ranges::RT
     meta::MT
@@ -70,8 +70,10 @@ range_view(ranges, inds) = TransmuteDims.filter(r -> ndims(r)>0, view.(ranges, i
 Function for constructing either a `NamedDimsArray`, a `RangeWrap`,
 or a nested pair of both. Performs some sanity checks.
 """
-Wrap(A::AbstractArray, names::Symbol...) = NamedDimsArray(A, names)
-Wrap(A::AbstractArray, ranges::AbstractArray...) = RangeWrap(A, check_ranges(A, ranges))
+Wrap(A::AbstractArray, names::Symbol...) =
+    NamedDimsArray(A, names)
+Wrap(A::AbstractArray, ranges::Union{AbstractVector,Nothing}...) =
+    RangeWrap(A, check_ranges(A, ranges))
 # Wrap(A::AbstractArray; kw...) =
 #     NamedDimsArray(RangeWrap(A, values(kw.data)), check_names(A,kw.itr))
 Wrap(A::AbstractArray; kw...) =
@@ -86,13 +88,14 @@ end
 
 function check_ranges(A, ranges)
     ndims(A) == length(ranges) || error("wrong number of ranges")
-    size(A) == length.(ranges) || error("wrong length of ranges")
-    for r in ranges
+    map(enumerate(ranges)) do (d,r)
+        r === nothing && return axes(A,d)
+        size(A,d) == length(r) || error("wrong length of ranges")
         if eltype(r) == Symbol
             allunique(r...) || error("ranges of Symbols need to be unique")
         end
-    end
-    ranges
+        r
+    end |> Tuple
 end
 
 #################### RECURSION ####################
@@ -225,8 +228,8 @@ then a single index may be used to indicate a slice.
 
     if length(args) == ndims(A)
         inds = map((v,r) -> findindex(v,r), args, ranges)
-        # any(inds .=== nothing) && error("no matching entries found!") # slow...
-        @boundscheck checkbounds(A, inds...)
+        # any(inds .=== nothing) && error("no matching entries found!") # very slow!
+        @boundscheck checkbounds(A, inds...) # TODO add methods to checkbounds for nothing?
         # if allint(i...)
             return @inbounds getindex(A.data, inds...)
         # else
@@ -375,12 +378,46 @@ Base.findall(eq::Base.Fix2{typeof(isequal),Int}, r::Base.OneTo{Int}) =
     1 <= eq.x <= r.stop ? (eq.x:eq.x) : nothing   # 0.03ns
     # 1 <= eq.x <= r.stop ? [eq.x] : nothing        # 26 ns
 
+
+#################### MUTATION ####################
+
+function Base.push!(A::RangeWrap, x)
+    push!(A.data, x)
+    A.ranges = (extend_one!!(A.ranges[1]),)
+    A
+end
+
+function Base.append!(A::RangeWrap, B)
+    push!(A.data, rangeless(B))
+    if hasranges(B) === True()
+        A.ranges = (append!!(A.ranges[1], getranges(B)[1]),)
+        # You could add a branch here for vcat(1:3, 4:5), but prob not worth it.
+    else
+        A.ranges = (extend_by!!(A.ranges[1], length(B)),)
+    end
+    A
+end
+
+# Like BangBang.jl, these should mutate if they can, but always return result:
+extend_one!!(r::Base.OneTo) = Base.OneTo(last(r)+1)
+extend_one!!(r::StepRange{Int,Int}) = StepRange(r.start, r.step, r.stop + r.step)
+extend_one!!(r::Vector{<:Number}) = push!(r, length(r)+1)
+extend_one!!(r::AbstractVector) = vcat(r, length(r)+1)
+
+extend_by!!(r::Base.OneTo, n::Int) = Base.OneTo(last(r)+n)
+extend_by!!(r::StepRange{Int,Int}, n::Int) = StepRange(r.start, r.step, r.stop + n * r.step)
+extend_by!!(r::Vector{<:Number}) = append!(r, length(r)+1 : length(r)+n+1)
+extend_by!!(r::AbstractVector) = vcat(r, length(r)+1 : length(r)+n+1)
+
+append!!(r::Vector, s::AbstractVector) = append!(r,s)
+append!!(r::AbstractVector, s::AbstractVector) = vcat(r,s)
+
 #################### PRETTY ####################
 
 function Base.summary(io::IO, x::RangeUnion)
     if hasnames(x) === True()
         if ndims(x)==1
-            print(io, length(x),"-element (",summary_pair(getnames(x)[1],axes(x,1)),") ",typeof(x))
+            print(io, length(x),"-element [",summary_pair(getnames(x)[1],axes(x,1)),"] ",typeof(x))
         else
             list = [summary_pair(na,ax) for (na,ax) in zip(getnames(x), axes(x))]
             print(io, join(list," × "), " ",typeof(x))
@@ -394,7 +431,6 @@ function Base.summary(io::IO, x::RangeUnion)
         end
         names = Tuple(1:ndims(x))
     end
-    saydata = false
 
     if hasranges(x) === True()
         ranges = getranges(x)
@@ -402,16 +438,14 @@ function Base.summary(io::IO, x::RangeUnion)
         for d in 1:ndims(x)
             println(io, "    ", names[d], " ∈ ", ranges[d])
         end
-        saydata = true
     end
 
     if getmeta(x) !== nothing
         println(io, "and meta:")
         println(io, "    ", repr(getmeta(x)))
-        saydata = true
     end
 
-    if saydata
+    if hasranges(x) === True()
         print(io, "and data")
     end
 end
