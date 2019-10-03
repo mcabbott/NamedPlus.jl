@@ -73,8 +73,4 @@ summary_pair(name::Symbol, axis) =
 
 #################### THE END ####################
 
-mod(args...) = Base.mod(args...)
-mod(i::Integer, r::Base.OneTo) = mod1(i, last(r))
-mod(i::Integer, r::AbstractUnitRange{<:Integer}) = mod(i-first(r), length(r)) + first(r)
-
 end # module

@@ -50,9 +50,16 @@ Base.@propagate_inbounds function Base.getindex(A::RangeWrap; kw...) # untested!
     Base.getindex(A, inds...)
 end
 
-range_getindex(ranges, inds) = TransmuteDims.filter(r -> r isa AbstractArray, getindex.(ranges, inds))
-range_view(ranges, inds) = TransmuteDims.filter(r -> ndims(r)>0, view.(ranges, inds))
+range_getindex(ranges, inds) = filter(r -> r isa AbstractArray, getindex.(ranges, inds))
+range_view(ranges, inds) = filter(r -> ndims(r)>0, view.(ranges, inds))
 
+#=
+Wrap(rand(2,2), a=nothing, b=nothing)[:, [CartesianIndex()], :]
+
+Fails at checkbounds.(A.ranges, I),
+and then at range_getindex
+Need @generated ranges_checkbounds & range_getindex?
+=#
 
 """
     Wrap(A, :i, :j)
@@ -351,6 +358,14 @@ findall(eq::Base.Fix2{typeof(isequal),Int}, r::Base.OneTo{Int}) =
     1 <= eq.x <= r.stop ? (eq.x:eq.x) : nothing   # 0.03ns
     # 1 <= eq.x <= r.stop ? [eq.x] : nothing        # 26 ns
 
+# https://github.com/JuliaLang/julia/pull/32968
+filter(args...) = Base.filter(args...)
+filter(f, xs::Tuple) = Base.afoldl((ys, x) -> f(x) ? (ys..., x) : ys, (), xs...)
+filter(f, t::Base.Any16) = Tuple(filter(f, collect(t)))
+
+mod(args...) = Base.mod(args...)
+mod(i::Integer, r::Base.OneTo) = mod1(i, last(r))
+mod(i::Integer, r::AbstractUnitRange{<:Integer}) = mod(i-first(r), length(r)) + first(r)
 
 #################### MUTATION ####################
 
