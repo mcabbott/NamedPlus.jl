@@ -2,6 +2,8 @@
 
 export ranges, getranges, hasranges, rangeless, Wrap, RangeWrap
 
+using OffsetArrays
+
 # mutable struct RangeWrap{T,N,AT,RT,MT} <: AbstractArray{T,N}
 #     data::AT
 #     ranges::RT
@@ -24,14 +26,14 @@ Base.parent(x::RangeWrap) = x.data
 Base.IndexStyle(A::RangeWrap) = IndexStyle(A.data)
 
 @inline function Base.getindex(A::RangeWrap, I...)
-    @boundscheck checkbounds(A, I...)
+    @boundscheck checkbounds(A.data, I...)
     data = @inbounds getindex(A.data, I...)
     @boundscheck checkbounds.(A.ranges, I)
     ranges = @inbounds range_getindex(A.ranges, I)
     ranges isa Tuple{} ? data : RangeWrap(data, ranges, A.meta)
 end
 @inline function Base.view(A::RangeWrap, I...)
-    @boundscheck checkbounds(A, I...)
+    @boundscheck checkbounds(A.data, I...)
     data = @inbounds view(A.data, I...)
     @boundscheck checkbounds.(A.ranges, I)
     ranges = @inbounds range_view(A.ranges, I)
@@ -93,12 +95,24 @@ function check_ranges(A, ranges)
     map(enumerate(ranges)) do (d,r)
         r === nothing && return axes(A,d)
         size(A,d) == length(r) || error("wrong length of ranges")
+        if axes(A,d) != axes(r,1) # error("range's axis does not match array's")
+            r = OffsetArray(r, axes(A,d))
+        end
         if eltype(r) == Symbol
             allunique(r...) || error("ranges of Symbols need to be unique")
         end
         r
     end |> Tuple
 end
+
+#=
+using OffsetArrays # now fixed
+
+oo = OffsetArray(rand(1:99, 5), -2:2)
+ww = Wrap(oo, ii='a':'e')
+ww[0]
+
+=#
 
 #################### RECURSION ####################
 
