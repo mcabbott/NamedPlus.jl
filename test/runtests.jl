@@ -153,3 +153,46 @@ end
     end
 
 end
+
+using OffsetArrays
+
+@testset "ranges" begin
+
+    R = RangeWrap(rand(1:99, 3,4), (['a', 'b', 'c'], 10:10:40))
+    N = Wrap(rand(1:99, 3,4), obs = ['a', 'b', 'c'], iter = 10:10:40) # combined constructor
+
+    # ===== access
+    @test R('c', 40) == R[3, 4]
+    @test R('b') == R[2,:]
+
+    @test N(obs='a', iter=40) == N[obs=1, iter=4]
+    @test N(obs='a') == N('a') == N[1,:]
+
+    # ===== recursion
+    @test getnames(Transpose(N)) == (:iter, :obs)
+    @test getranges(Transpose(N)) == (:iter, :obs)
+
+    @test nameless(Transpose(N)) isa Transpose{Int, <:RangeWrap}
+
+    N2 = NamedDimsArray(nameless(N), getnames(N))
+    @test N2 isa NamedDimsArray{(:obs, :iter),Int,2,<:RangeWrap}
+    if VERSION >= v"1.3-rc2"
+        @test N2(obs='a', iter=40) == N2[obs=1, iter=4]
+    end
+
+    # ===== selectors
+    @test N(iter=Near(12.5)) == N[:,1]
+    @test_broken N(iter=Between(7,23)) == N[:,1:2]
+
+    @test R('a', Index[2]) == R[1,2]
+
+    # ===== mutation
+    V = Wrap([3,5,7,11], μ=10:10:40)
+    @test ranges(push!(V, 13)) == 10:10:50
+
+    # ===== offset
+    o = OffsetArray(rand(1:99, 5), -2:2)
+    w = Wrap(o, i='a':'e')
+    @test w[i=-2] == w('a')
+
+end

@@ -105,14 +105,6 @@ function check_ranges(A, ranges)
     end |> Tuple
 end
 
-#=
-using OffsetArrays # now fixed
-
-oo = OffsetArray(rand(1:99, 5), -2:2)
-ww = Wrap(oo, ii='a':'e')
-ww[0]
-
-=#
 
 #################### RECURSION ####################
 
@@ -424,11 +416,79 @@ shorten_one!!(r::Base.OneTo) = Base.OneTo(last(r)-1)
 shorten_one!!(r::Vector) = pop!(r)
 shorten_one!!(r::AbstractVector) = r[1:end-1]
 
-#################### PRETTY ####################
+#################### FUNCTIONS ####################
 
+# function Base.mapreduce(f, op, A::RangeWrap; dims=:)
+#     dims === Colon() && return mapreduce(f, op, A.data)
 
+#     numerical_dims = hasnames(A)===True() ? NamedDims.dim(getnames(A), dims) : dims
+#     data = mapreduce(f, op, A.data; dims=numerical_dims)
+#     ranges = ntuple(d -> d in numerical_dims ? Base.OneTo(1) : A.ranges[d], ndims(A))
+#     RangeWrap(data, ranges, A.meta)
+# end
 
-# end # module
+function Base.mapreduce(f, op, A::PlusUnion; dims=:) # sum, prod, etc
+    B = nameless(rangeless(A))
+    dims === Colon() && return mapreduce(f, op, B)
+
+    numerical_dims = hasnames(A)===True() ? NamedDims.dim(getnames(A), dims) : dims
+    C = mapreduce(f, op, B; dims=numerical_dims)
+
+    X = hasnames(A)===True() ? NamedDimsArray(C, getnames(A)) : C
+    if hasranges(A)===True()
+        ranges = ntuple(d -> d in numerical_dims ? Base.OneTo(1) : getranges(A)[d], ndims(A))
+        return RangeWrap(X, ranges, getmeta(A))
+    else
+        return X
+    end
+end
+
+function Base.dropdims(A::RangeWrap; dims)
+    numerical_dims = hasnames(A)===True() ? NamedDims.dim(getnames(A), dims) : dims
+    data = dropdims(A.data; dims=dims)
+    ranges = range_skip(A.ranges, numerical_dims...)
+    RangeWrap(data, ranges, A.meta)
+end
+range_skip(tup::Tuple, d, dims...) = range_skip(
+    ntuple(n -> n<d ? tup[n] : tup[n+1], length(tup)-1),
+    map(n -> n<d ? n : n-1, dims)...)
+range_skip(tup::Tuple) = tup
+
+function Base.permutedims(A::RangeWrap, perm)
+    numerical_perm = hasnames(A)===True() ? NamedDims.dim(getnames(A), perm) : perm
+    data = permutedims(A.data, numerical_perm)
+    ranges = ntuple(d -> A.ranges[findfirst(isequal(d), perm)], ndims(A))
+    RangeWrap(data, ranges, A.meta)
+end
+
+for fun in (:(Base.permutedims), :(LinearAlgebra.transpose))
+    @eval function $fun(A::RangeWrap)
+        data = $fun(A.data)
+        ranges = ndims(A)==1 ? (Base.OneTo(1), A.ranges[1]) : reverse(A.ranges)
+        RangeWrap(data, ranges, A.meta)
+    end
+end
+
+#################### BROADCASTING ####################
+# https://docs.julialang.org/en/v1/manual/interfaces/#Selecting-an-appropriate-output-array-1
+
+#=
+Base.BroadcastStyle(::Type{<:RangeWrap}) = Broadcast.ArrayStyle{RangeWrap}()
+
+function Base.similar(bc::Broadcast.Broadcasted{Broadcast.ArrayStyle{RangeWrap}}, ::Type{ElType}) where ElType
+    A = find_aac(bc)
+    RangeWrap(similar(Array{ElType}, axes(bc)), A.ranges, A.meta)
+end
+
+"`A = find_aac(As)` returns the first RangeWrap among the arguments."
+find_aac(bc::Base.Broadcast.Broadcasted) = find_aac(bc.args)
+find_aac(args::Tuple) = find_aac(find_aac(args[1]), Base.tail(args))
+find_aac(x) = x
+find_aac(a::RangeWrap, rest) = a
+find_aac(::Any, rest) = find_aac(rest)
+=#
+
+#################### THE END ####################
 
 #=
 
@@ -506,14 +566,6 @@ W = Wrap(M, axes(M)...);
 
 @btime mysum3($W) # 1.677 ms
 @btime mysum4($W) # 1.677 ms
-=#
-
-#=
-# After putting this in a module, etc, still get same re-wrapping error:
-using .RangeWrappers: Wrap, rangeless, RangeWrap
-using NamedPlus: getnames
-NamedPlus.rewraplike(x::RangeWrap, y, z) = Main.RangeWrappers.RangeWrap(z, x.ranges) #
-nameless(Transpose(C))
 =#
 
 
