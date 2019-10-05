@@ -31,7 +31,7 @@ include("maths.jl") # contract, svd
 #################### BASE.SHOW ####################
 
 function Base.summary(io::IO, x::PlusUnion)
-    if hasnames(x) === True()
+    if hasnames(x)
         if ndims(x)==1
             print(io, length(x),"-element [",summary_pair(getnames(x)[1],axes(x,1)),"] ",typeof(x))
         else
@@ -48,7 +48,7 @@ function Base.summary(io::IO, x::PlusUnion)
         names = Tuple(1:ndims(x))
     end
 
-    if hasranges(x) === True()
+    if hasranges(x)
         ranges = getranges(x)
         println(io, "\nwith ranges:")
         for d in 1:ndims(x)
@@ -61,7 +61,7 @@ function Base.summary(io::IO, x::PlusUnion)
         println(io, "    ", repr(getmeta(x)))
     end
 
-    if hasranges(x) === True()
+    if hasranges(x)
         print(io, "and data")
     end
 end

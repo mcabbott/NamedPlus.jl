@@ -19,10 +19,9 @@ names_doc = """
     getnames(A, d)
 
 These work recursively through wrappers.
-`hasnames(A) == True()` or `false`.
 
 For any wrapper type which changes the order / number of dimensions,
-you will need to define `outmap(x, names) = outernames`.
+you will need to define `NamedPlus.outmap(x, names) = outernames`.
 """
 
 @doc names_doc
@@ -30,16 +29,11 @@ Base.names(x::NamedUnion) = getnames(x)
 Base.names(x::NamedUnion, d::Int) = getnames(x, d)
 
 @doc names_doc
-hasnames(x::NamedDimsArray) = True()
+hasnames(x::NamedDimsArray) = true
 hasnames(x::AbstractArray) = x === parent(x) ? false : hasnames(parent(x))
 
 @doc names_doc
-function getnames(x::AbstractArray)
-    # hasnames(x) === True() || return default_names(x)
-    p = parent(x)
-    x === p && return default_names(x)
-    return outmap(x, getnames(p), :_)
-end
+getnames(x::AbstractArray) = x === parent(x) ? default_names(x) : outmap(x, getnames(parent(x)), :_)
 getnames(x::NamedDimsArray{names}) where {names} = names
 getnames(x, d::Int) = d <= ndims(x) ? getnames(x)[d] : :_
 
@@ -48,7 +42,7 @@ default_names(x::AbstractArray) = ntuple(_ -> :_, ndims(x))
 """
     outmap(A, tuple, default)
 
-Maps the names/ranges tuple from `A.parent` to that for `A`.
+Maps the names/ranges tuple from `parent(A)` to that for `A`.
 """
 outmap(A, tup, z) = tup
 
@@ -72,16 +66,13 @@ outmap(::SubArray, x) = (@warn "outmap may behave badly with views!"; x)
     nameless(x)
 
 An attempt at a recursive `unname()` function.
+Needs `Base.parent` and `NamedPlus.rewraplike` to work on each wrapper.
 """
 nameless(x::NamedDimsArray) = parent(x)
-
 nameless(x) = x
-
 function nameless(x::AbstractArray)
-    hasnames(x) === True() || return x
-    p = parent(x)
-    p === x && return x
-    return rewraplike(x, p, nameless(p))
+    hasnames(x) || return x
+    x === parent(x) ? x : rewraplike(x, parent(x), nameless(parent(x)))
 end
 
 

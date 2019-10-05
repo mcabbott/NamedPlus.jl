@@ -46,7 +46,7 @@ end
 end
 
 Base.@propagate_inbounds function Base.getindex(A::RangeWrap; kw...) # untested!
-    hasnames(A) === True() || error("must have names!")
+    hasnames(A) || error("must have names!")
     ds = NamedDims.dim(getnames(A), keys(kw))
     inds = ntuple(d -> d in ds ? values(kw)[d] : (:), ndims(A))
     Base.getindex(A, inds...)
@@ -121,17 +121,12 @@ ranges(x::RangeWrap) = x.ranges
 ranges(x, d::Int) = d <= ndims(x) ? ranges(x)[d] : Base.OneTo(1)
 
 @doc ranges_doc
-hasranges(x::RangeWrap) = True()
-
+hasranges(x::RangeWrap) = true
 hasranges(x::AbstractArray) = x === parent(x) ? false : hasranges(parent(x))
 
 @doc ranges_doc
-function getranges(x::AbstractArray)
-    # hasranges(x) === True() || return default_ranges(x)
-    p = parent(x)
-    x === p && return default_ranges(x)
-    return outmap(x, getranges(p), Base.OneTo(1))
-end
+getranges(x::AbstractArray) = x === parent(x) ? default_ranges(x) :
+    outmap(x, getranges(parent(x)), Base.OneTo(1))
 getranges(x::RangeWrap) = x.ranges
 getranges(x, d::Int) = d <= ndims(x) ? getranges(x)[d] : Base.OneTo(1)
 
@@ -152,22 +147,13 @@ find a `RangeWrap` object inside.
 meta(x::RangeWrap) = x.meta
 
 @doc meta_doc
-function getmeta(x::AbstractArray)
-    # hasranges(x) === True() || return nothing
-    p = parent(x)
-    x === p && return nothing
-    return getmeta(p)
-end
+getmeta(x::AbstractArray) = x === parent(x) ? nothing : getmeta(parent(x))
 getmeta(x::RangeWrap) = x.meta
 
 @doc meta_doc
 addmeta(x::RangeWrap, meta) = RangeWrap(x.data, x.ranges, meta)
-function addmeta(x::AbstractArray, meta)
-    # hasranges(x) === True() || return nothing
-    p = parent(x)
-    x === parent(x) && return RangeWrap(x, axes(x), meta)
-    return NamedPlus.rewraplike(x, p, addmeta(p, meta))
-end
+addmeta(x::AbstractArray, meta) = x === parent(parent(x)) ? RangeWrap(x, axes(x), meta) :
+    rewraplike(x, parent(x), addmeta(parent(x), meta))
 
 """
     rangeless(A)
@@ -175,14 +161,10 @@ end
 Like nameless but for ranges.
 """
 rangeless(x::RangeWrap) = parent(x)
-
 rangeless(x) = x
-
 function rangeless(x::AbstractArray)
-    hasranges(x) === True() || return x
-    p = parent(x)
-    p === x && return x
-    return rewraplike(x, p, rangeless(p))
+    hasranges(x) || return x
+    x === parent(x) ? x : rewraplike(x, parent(x), rangeless(parent(x)))
 end
 
 rewraplike(x::RangeWrap, y, z) = RangeWrap(z, x.ranges, x.meta)
@@ -246,7 +228,7 @@ When you have both names and ranges, you can call `A` with keyword args.
 @inline (A::RangeWrap)(;kw...) = get_from_kw(A, kw)
 
 @inline function get_from_kw(A, kw)
-    hasnames(A) === True() || error("named indexing requires a named object!")
+    hasnames(A) || error("named indexing requires a named object!")
     list = getnames(A)
     issubset(kw.itr, list) || error("some keywords not in list of names!")
     args = map(s -> Base.sym_in(s, kw.itr) ? getfield(kw.data, s) : Colon(), list)
@@ -389,7 +371,7 @@ end
 
 function Base.append!(A::RangeWrap, B)
     push!(A.data, rangeless(B))
-    if hasranges(B) === True()
+    if hasranges(B)
         A.ranges = (append!!(A.ranges[1], getranges(B)[1]),)
         # You could add a branch here for vcat(1:3, 4:5), but prob not worth it.
     else
@@ -421,7 +403,7 @@ shorten_one!!(r::AbstractVector) = r[1:end-1]
 # function Base.mapreduce(f, op, A::RangeWrap; dims=:)
 #     dims === Colon() && return mapreduce(f, op, A.data)
 
-#     numerical_dims = hasnames(A)===True() ? NamedDims.dim(getnames(A), dims) : dims
+#     numerical_dims = hasnames(A) ? NamedDims.dim(getnames(A), dims) : dims
 #     data = mapreduce(f, op, A.data; dims=numerical_dims)
 #     ranges = ntuple(d -> d in numerical_dims ? Base.OneTo(1) : A.ranges[d], ndims(A))
 #     RangeWrap(data, ranges, A.meta)
@@ -431,11 +413,11 @@ function Base.mapreduce(f, op, A::PlusUnion; dims=:) # sum, prod, etc
     B = nameless(rangeless(A))
     dims === Colon() && return mapreduce(f, op, B)
 
-    numerical_dims = hasnames(A)===True() ? NamedDims.dim(getnames(A), dims) : dims
+    numerical_dims = hasnames(A) ? NamedDims.dim(getnames(A), dims) : dims
     C = mapreduce(f, op, B; dims=numerical_dims)
 
-    X = hasnames(A)===True() ? NamedDimsArray(C, getnames(A)) : C
-    if hasranges(A)===True()
+    X = hasnames(A) ? NamedDimsArray(C, getnames(A)) : C
+    if hasranges(A)
         ranges = ntuple(d -> d in numerical_dims ? Base.OneTo(1) : getranges(A)[d], ndims(A))
         return RangeWrap(X, ranges, getmeta(A))
     else
@@ -444,7 +426,7 @@ function Base.mapreduce(f, op, A::PlusUnion; dims=:) # sum, prod, etc
 end
 
 function Base.dropdims(A::RangeWrap; dims)
-    numerical_dims = hasnames(A)===True() ? NamedDims.dim(getnames(A), dims) : dims
+    numerical_dims = hasnames(A) ? NamedDims.dim(getnames(A), dims) : dims
     data = dropdims(A.data; dims=dims)
     ranges = range_skip(A.ranges, numerical_dims...)
     RangeWrap(data, ranges, A.meta)
@@ -455,7 +437,7 @@ range_skip(tup::Tuple, d, dims...) = range_skip(
 range_skip(tup::Tuple) = tup
 
 function Base.permutedims(A::RangeWrap, perm)
-    numerical_perm = hasnames(A)===True() ? NamedDims.dim(getnames(A), perm) : perm
+    numerical_perm = hasnames(A) ? NamedDims.dim(getnames(A), perm) : perm
     data = permutedims(A.data, numerical_perm)
     ranges = ntuple(d -> A.ranges[findfirst(isequal(d), perm)], ndims(A))
     RangeWrap(data, ranges, A.meta)
