@@ -4,10 +4,6 @@ export True, hasnames, getnames
 
 using LinearAlgebra
 
-struct True <: Integer end
-Base.promote_rule(::Type{T}, ::Type{True}) where {T<:Number} = T
-Base.convert(::Type{T}, ::True) where T<:Number = convert(T, true)
-
 names_doc = """
     names(A::NamedDimsArray) -> Tuple
     names(A, d) -> Symbol

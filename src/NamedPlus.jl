@@ -1,11 +1,16 @@
 module NamedPlus
 
 using NamedDims
-export NamedDims, NamedDimsArray, dim, unname # NamedDims's functions, untouched
+export NamedDims, NamedDimsArray, dim, unname
+
+# using JuliennedArrays
+# export Slices, Align
+
+using LinearAlgebra
+
+using TransmuteDims
 
 export NamedUnion, thenames, nameless # this package's functions
-
-using LinearAlgebra, TransmuteDims
 
 #################### CODE ####################
 
@@ -23,6 +28,8 @@ include("recursion.jl") # getnames, nameless
 include("ranges.jl") # all things RangeWrap
 
 include("view.jl") # permutenames, split/join
+
+# include("julienne.jl")
 
 include("macro.jl")
 

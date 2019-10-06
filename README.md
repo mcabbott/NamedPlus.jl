@@ -43,37 +43,45 @@ similar(m, z, :i, :z)   # names (:i, :z), size (2, 26)
 
 # ===== broadcasting
 w = m ./ v'                   # these indices line up, but m ./ v is an error
-@named z{i,k,j} = t .+ m ./ v # these get automatically aligned
+@named z{i,k,j} = t .+ m ./ v # these get automatically aligned...
 names(z) == (:i, :k, :j)
 
-m′ = permutenames(m, (:i, :k, :j)) # by calling this, which wraps GapView{T,3,(1,0,2),(1,3),...
+m′ = permutenames(m, (:i, :k, :j)) # ... by calling this, makes a TransmutedDimsArray
 names(m′) == (:i, :_, :j)
+
+# ===== comprehensions
+@named w = [i^2 + im*j for i=1:2, j=1:3] # has names (:i, :j)
 
 # ===== rename, unname
 mk = rename(m, :j => :k) # replace an index
 tm = rand()<0.5 ? m : copy(transpose(m))
 unname(tm, (:i, :j))     # un-named array, always 2 x 3, sometimes ::Transpose
 
-prime(m, first) # names (:i′, :j)
-prime(t, 2)     # (:i, :j′, :k)
+prime(m, first)          # names (:i′, :j)
+prime(t, 2)              # (:i, :j′, :k)
 
 # ===== reshaping
 join(t, (:i,:j) => :ij) # (:ij, :k) size (6, 4)
 t′ = join(t, :i,:k)     # (:j, Symbol("i⊗k")) size (3, 8)
 
 t′′ = split(t′, (:i,:k), (2,4)) # (:j, :i, :k) size (3, 2, 4)
-t′′[1,1,1] = 99; t′ # changes t′ but not t, as non-adjacent join needed permutedims
+t′′[1,1,1] = 99; t′    # changes t′ but not t, as non-adjacent join needed permutedims
 
 # ===== wrapper types
 d = Diagonal(v)        # 3×3 Diagonal{Float64,NamedDimsArray{(:j,), ...
 getnames(d)            # (:j, :j)
 nameless(d)            # looks inside
 diagonal(v, (:j, :j′)) # NamedDimsArray{(:j, :j′), ..., Diagonal{...
-diagonal(v)[j=2]       # fixes both indices, not yet for Diagonal(v)
+Diagonal(v)[j=2]       # fixes both indices, works through wrapper
 
 p = PermutedDimsArray(t, (:k,:i,:j))
 getnames(p)            # (:k, :i, :j)
 summary(p)             # "k≤4 × i≤2 × j≤3 PermutedDimsArray{...
+
+# ===== slicing
+# Slices(m, :i) # disabled for now
+# Align(NamedDimsArray([k .* v for k =1:4], (:k,))) 
+
 ```
 
 ### Maths
@@ -133,6 +141,8 @@ You can index by the ranges using round brackets instead. Here's what works:
 R = RangeWrap(rand(1:99, 3,4), (['a', 'b', 'c'], 10:10:40))
 N = Wrap(rand(1:99, 3,4), obs = ['a', 'b', 'c'], iter = 10:10:40) # combined constructor
 
+@named S = [sqrt(iter) for iter = 10:10:40] # macro extracts name & range
+
 # ===== access
 R('c', 40) == R[3, 4]
 R('b') == R[2,:]
@@ -141,18 +151,16 @@ N(obs='a', iter=40) == N[obs=1, iter=4]
 N(obs='a') == N('a') == N[1,:]
 
 # ===== recursion
-getnames(Transpose(N))   # unwraps to dig out (:iter, :obs)
-getranges(Transpose(N))  # ditto
-
-nameless(Transpose(N))   # re-constructs without NamedDimsArray
+getnames(Transpose(N))   # unwraps to dig out (:iter, :obs), similarly getranges()
+nameless(Transpose(N))   # re-constructs without NamedDimsArray, sim. rangeless()
 
 N2 = NamedDimsArray(nameless(N), getnames(N)) # exchange the order
 N2(obs='a', iter=40) == N2[obs=1, iter=4]     # only on Julia 1.3 & up
 
 # ===== selectors
-N(iter=Near(12.5))
+N('a', Near(12.5))
 N(iter=Between(7,23))
-
+S(<(25)) # functions go into findall(..., range)
 R('a', Index[2]) # back to square brackets
 
 # ===== mutation

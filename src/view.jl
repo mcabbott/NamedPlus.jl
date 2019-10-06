@@ -35,7 +35,7 @@ function permutenames(A::NamedUnion, target::Tuple{Vararg{Symbol}}; lazy::Bool=t
     B = canonise(A)
     T = eltype(A)
 
-    namesB = NamedDims.names(B)
+    namesB = getnames(B)
     perm = map(n -> NamedDims.dim_noerror(namesB, n), target)
 
     if perm == ntuple(identity, ndims(B))
@@ -78,9 +78,9 @@ function Base.join(A::NamedUnion, p::Pair{<:Tuple,Symbol})
             size(A, d+1)
         end
         nm = ntuple(ndims(A)-1) do d
-            d < min(d1,d2) ? names(A,d) :
+            d < min(d1,d2) ? getnames(A,d) :
             d==min(d1,d2) ? p.second :
-            names(A, d+1)
+            getnames(A, d+1)
         end
         return NamedDimsArray{nm}(reshape(nameless(A), sz))
 
@@ -104,6 +104,7 @@ _join(i::Symbol, j::Symbol) = _join(Val(i), Val(j))
 @generated _join(::Val{i}, ::Val{j}) where {i,j} = QuoteNode(Symbol(i, :⊗, j))
 
 # @btime (() -> _split(Symbol("i⊗j")))()  # 0 allocations, but 4 μs!
+# @btime (() -> _split($(QuoteNode(Symbol("i⊗j")))))()  # 0 allocations, but 4 μs!
 # @btime (() -> _split(_join(:i, :j)))()  # 0 allocations, 1.4 ns
 _split(ij::Symbol) = _split(Val(ij))
 @generated _split(::Val{ij}) where {ij} = Tuple(map(QuoteNode∘Symbol, split(string(ij), '⊗')))
@@ -135,10 +136,10 @@ function Base.split(A::NamedUnion, pair::Pair{Symbol,<:Tuple}, sizes::Tuple)
         size(A, d-1)
     end
     nm = ntuple(ndims(A)+1) do d
-        d < d0 ? names(A,d) :
+        d < d0 ? getnames(A,d) :
         d==d0 ? pair.second[1] :
         d==d0+1 ? pair.second[2] :
-        names(A, d-1)
+        getnames(A, d-1)
     end
     NamedDimsArray{nm}(reshape(nameless(A), sz))
 end
@@ -164,30 +165,41 @@ ABC = NamedDimsArray(rand(1:10, 2,3,4), (:a,:b,:c))
 export rename
 
 """
-    rename(A, names) = NamedDims.rename(A, names)
+    rename(A, names) = NamedDimsArray(nameless(A), names)
 
 Discards `A`'s dimension names & replaces with the given ones.
-Exactly equivalent to `NamedDimsArray(nameless(A), names)` I think.
+Does this even need its own function?
 
     rename(A, :i => :j)
-    A′, B′ = rename(A, B, :i => :j, :j => :k)
+    rename(A, :i => :j, :k => :l)
+    A′, B′ = rename(A, B, :i => :j)
 
-Works a bit like `Base.replace` on index names.
-If there are several rules, the first matching rule is applied to each index, not all in sequence.
+Works a bit like `Base.replace` on index names. (Could even be made a method of that.)
+If there are several rules, they are applied in sequence. (It's fast with up to two!)
 Given several arrays `A, B`, it makes the same replacements for all, returning a tuple.
 """
-rename(nda::NamedUnion, names::NTuple{N, Symbol} where N) = NamedDims.rename(nda, names)
+rename(nda::NamedUnion, names::Tuple{Vararg{Symbol}}) = NamedDimsArray(nameless(nda), names)
 
-function rename(nda::NamedUnion, pairs::Pair...)
-    old = names(nda)
-    new = map(old) do i
-        for p in pairs
-            i === p.first && return p.second
-        end
-        return i
-    end
+function rename(nda::NamedUnion, pair::Pair)
+    new = _rename(getnames(nda), pair)
     NamedDimsArray(nameless(nda), new)
 end
+function rename(nda::NamedUnion, pair::Pair, pair2::Pair, rest::Pair...)
+    new1 = _rename(getnames(nda), pair)
+    new2 = _rename(new1, pair2)
+    rename(NamedDimsArray(nameless(nda), new2), rest...)
+end
+rename(nda::NamedUnion) = nda
+
+_rename(old, pair) = map(s -> s===pair.first ? pair.second : s, old) |> NamedDims.compile_time_return_hack
+# @btime NamedPlus._rename((:a, :b), :b => :c) # 1.420 ns (0 allocations: 0 bytes)
+
+#=
+const ndv = NamedDimsArray{(:a,)}([1,2,3])
+@btime (() -> rename(ndv, :a => :b))()            #  6.679 ns (1 allocation: 16 bytes)
+@btime (() -> rename(ndv, :a => :b, :b => :c))()  #  6.681 ns (1 allocation: 16 bytes)
+
+=#
 
 for n=2:10
     args = [:( $(Symbol("nda_",i))::NamedUnion ) for i=1:n ]
@@ -195,15 +207,14 @@ for n=2:10
     @eval rename($(args...), pairs::Pair...) = ($(vals...),)
 end
 
-
 #################### PRIMES ####################
 
 export prime
 
 """
     prime(x, d::Int)
-    prime(x, first)
-    prime(x, last)
+    prime(x, first) = prime(x, 1)
+    prime(x, last)  = prime(x, ndims(x))
     prime(x, i::Symbol) = rename(x, i => prime(i))
 
 Add a unicode prime `′` to either the indicated index name, or to the given symbol.
@@ -220,17 +231,31 @@ _prime(tup::NTuple{N,Symbol}, ::Val{n}) where {N,n} =
     ntuple(i -> i==n ? prime(tup[i])::Symbol : tup[i], N)
 
 prime(x::NamedUnion, d::Int) =
-    NamedDimsArray{_prime(NamedDims.names(x), Val(d))}(nameless(x))
+    NamedDimsArray{_prime(getnames(x), Val(d))}(nameless(x))
 prime(x::NamedUnion, ::typeof(first)) =
-    NamedDimsArray{_prime(NamedDims.names(x), Val(1))}(nameless(x))
+    NamedDimsArray{_prime(getnames(x), Val(1))}(nameless(x))
 prime(x::NamedUnion, ::typeof(last)) =
-    NamedDimsArray{_prime(NamedDims.names(x), Val(ndims(x)))}(nameless(x))
+    NamedDimsArray{_prime(getnames(x), Val(ndims(x)))}(nameless(x))
+
+prime(x::NamedDimsArray{L,T,1}) where {L,T} =
+    NamedDimsArray{(_prime(Val(L[1])),)}(parent(x))
 
 prime(x::NamedUnion, s::Symbol) = rename(x, s => prime(s))
 
-# prime(x::NamedVec) = rename(x, (prime(NamedDims.name(x)[1]),)) # hmm.
-
 prime(x::AbstractArray, d) = x
+
+#=
+# These are zero-cost:
+@btime (() -> prime(NamedDimsArray{(:a,)}([1,2,3]), first))()  # 33.237 ns (2 allocations: 128 bytes)
+@btime (() -> prime(NamedDimsArray{(:a,)}([1,2,3])))()         # 33.307 ns (2 allocations: 128 bytes)
+@btime (() -> NamedDimsArray{(:a,)}([1,2,3]))() # without prime, 33.344 ns (2 allocations: 128 bytes)
+
+# And...
+@btime (() -> prime(NamedDimsArray{(:a,)}([1,2,3]), 1))()     # 1.258 μs (9 allocations: 432 bytes)
+const ndv = NamedDimsArray{(:a,)}([1,2,3])
+@btime (() -> prime(ndv, 1))()                                #  6.678 ns (1 allocation: 16 bytes)
+@btime (() -> prime(ndv, :a))()                               #  6.678 ns (1 allocation: 16 bytes)
+=#
 
 """
     :x' == :x′

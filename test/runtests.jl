@@ -35,7 +35,8 @@ end
     @test names(permutenames(v, (:i, :j, :k))) == (:_, :j, :_)
 
 end
-#= broken without TransmuteDims master
+
+# broken without TransmuteDims master?
 @testset "broadcasting by name" begin
 
     @test names(m ./ v') == (:i, :j)
@@ -46,7 +47,7 @@ end
     @test z == t .+ m ./ v'
 
 end
-=#
+
 @testset "rename & prime" begin
 
     @test prime(:z) == :z′
@@ -98,7 +99,8 @@ using LinearAlgebra, OMEinsum, TensorOperations
     d = Diagonal(v)
     @test names(d) == (:j, :j)
     @test typeof(nameless(d)) == Diagonal{Float64,Array{Float64,1}}
-    @test_broken d[j=2] === v[2] # indexing of namedunion not yet
+    @test d[j=2] === v[2] # indexing of NamedUnion
+
     @test canonise(d) === v
 
     d2 = diagonal(v, (:j, :j′))
@@ -113,6 +115,10 @@ using LinearAlgebra, OMEinsum, TensorOperations
     @test Base.names(p) == (:k, :i, :j)
     @test summary(p) == "k≤4 × i≤2 × j≤3 PermutedDimsArray{Float64,3,(3, 1, 2),(2, 3, 1),NamedDimsArray{(:i, :j, :k),Float64,3,Array{Float64,3}}}"
     @test t === canonise(p)
+
+    @test p[i=1, k=3, j=2] == t[1,2,3]
+    @test p[i=1, k=3] == t[1,:,3]
+    @test p[i=1] == transpose(t[1,:,:]) # is this OK?
 
 end
 @testset "SVD" begin
@@ -170,7 +176,7 @@ using OffsetArrays
 
     # ===== recursion
     @test getnames(Transpose(N)) == (:iter, :obs)
-    @test getranges(Transpose(N)) == (:iter, :obs)
+    @test getranges(Transpose(N)) == (10:10:40, ['a', 'b', 'c'])
 
     @test nameless(Transpose(N)) isa Transpose{Int, <:RangeWrap}
 
@@ -194,5 +200,14 @@ using OffsetArrays
     o = OffsetArray(rand(1:99, 5), -2:2)
     w = Wrap(o, i='a':'e')
     @test w[i=-2] == w('a')
+
+end
+
+@testset "comprehensions" begin
+
+    @test names(@named [x^2 for x in 1:2]) == (:x,)
+    @test names(@named [x/y for x in 1:2, y in 1:3]) == (:x,:y)
+
+    @test getranges(@named [x^2 for x in 1:2:10]) == (1:2:10,)
 
 end

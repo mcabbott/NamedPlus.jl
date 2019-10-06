@@ -172,13 +172,13 @@ rewraplike(x::RangeWrap, y, z) = RangeWrap(z, x.ranges, x.meta)
 #################### ROUND BRACKETS ####################
 
 if VERSION >= v"1.3.0-rc2.0"
-    (A::RangeUnion)(args...) = get_from_args(A, args...)
-    (A::RangeUnion)(;kw...) = get_from_kw(A, kw)
+    Base.@propagate_inbounds (A::RangeUnion)(args...) = get_from_args(A, args...)
+    Base.@propagate_inbounds (A::RangeUnion)(;kw...) = get_from_kw(A, kw)
 end
 
 """
-    (A::RangeUnion)("a", 2.0, :γ) == A[1:1, 2:2, 3:3]
-    A(:γ) == view(A, :,:,3:3)
+    (A::RangeUnion)("a", 2.0, :γ) == A[1, 2, 3]
+    A(:γ) == view(A, :,:,3)
 
 `RangeWrap` arrays are callable, and this behaves much like indexing,
 except using the contents of the ranges, not the integer indices.
@@ -186,28 +186,26 @@ except using the contents of the ranges, not the integer indices.
 When all `ranges(A)` have distinct `eltype`s,
 then a single index may be used to indicate a slice.
 """
-@inline (A::RangeWrap)(args...) = get_from_args(A, args...)
+Base.@propagate_inbounds (A::RangeWrap)(args...) = get_from_args(A, args...)
 
-@inline function get_from_args(A, args...)
+Base.@propagate_inbounds function get_from_args(A, args...)
     ranges = getranges(A)
 
     if length(args) == ndims(A)
         inds = map((v,r) -> findindex(v,r), args, ranges)
         # any(inds .=== nothing) && error("no matching entries found!") # very slow!
-        @boundscheck checkbounds(A, inds...) # TODO add methods to checkbounds for nothing?
-        # if allint(i...)
-            return @inbounds getindex(A.data, inds...)
-        # else
-        #     return @inbounds view(A.data, inds...)
-        # end
+        # @boundscheck checkbounds(A, inds...) # TODO add methods to checkbounds for nothing?
+        # return @inbounds getindex(A, inds...)
+        return getindex(A, inds...)
+
 
     elseif length(args)==1 && allunique_types(map(eltype, ranges)...)
         d = findfirst(T -> args[1] isa T, eltype.(ranges))
         i = findindex(first(args), ranges[d])
         inds = ntuple(n -> n==d ? i : (:), ndims(A))
-        @boundscheck checkbounds(A, inds...)
-        # return @inbounds view(A, inds...)
-        return @inbounds getindex(A, inds...)
+        # @boundscheck checkbounds(A, inds...)
+        # return @inbounds getindex(A, inds...)
+        return getindex(A, inds...)
 
     end
 
@@ -225,9 +223,9 @@ end
 
 When you have both names and ranges, you can call `A` with keyword args.
 """
-@inline (A::RangeWrap)(;kw...) = get_from_kw(A, kw)
+Base.@propagate_inbounds (A::RangeWrap)(;kw...) = get_from_kw(A, kw)
 
-@inline function get_from_kw(A, kw)
+Base.@propagate_inbounds function get_from_kw(A, kw)
     hasnames(A) || error("named indexing requires a named object!")
     list = getnames(A)
     issubset(kw.itr, list) || error("some keywords not in list of names!")
@@ -256,14 +254,20 @@ allint() = true
 """
     findindex(key, range)
 
-This is essentially `findfirst(isequal(key), range)`,
-use `All(key)` for findall.
+This is usually `findfirst(isequal(key), range)`,
+but understands `findindex(:, range)`
+and `findindex(array, range) = intersect(...)`.
+
+If passed a function, `findindex(<(4), range) = findall(x -> x<4, range)`.
+Selectors like `All(key)` and `Between(lo,hi)` also call `findall`.
 """
 findindex(a, r::AbstractArray) = findfirst(isequal(a), r)
 
 findindex(a::Colon, r::AbstractArray) = Colon()
 
 findindex(a::AbstractArray, r::AbstractArray) = intersect(a, r)
+
+findindex(f::Function, r::AbstractArray) = findall(f, r)
 
 
 #################### SELECTORS ####################
