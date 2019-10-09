@@ -21,6 +21,10 @@ mutable struct RangeWrap{T,N,AT,RT,MT} <: AbstractArray{T,N}
     meta::MT
 end
 
+struct Stacked{T,N,AT} <: AbstractArray{T,N}
+    slices::AT
+end
+
 include("wrap.jl") # must be first, defn NamedUnion
 
 include("recursion.jl") # getnames, nameless
@@ -30,6 +34,8 @@ include("ranges.jl") # all things RangeWrap
 include("view.jl") # permutenames, split/join
 
 # include("julienne.jl")
+include("eachslice.jl")
+include("stack.jl")
 
 include("macro.jl")
 

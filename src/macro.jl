@@ -68,8 +68,10 @@ _named(input_ex, mod) =
 
         @capture(ex, Z_{xyz__} = A_{ijk__}) && return ex_rename(Z, xyz, A, ijk)
 
-        @capture(ex, [val_ for ind_ in ran_] ) && return ex_comprehension(ex, val, ind, ran, mod)
-        @capture(ex, [val_ for ind1_ in ran1_, ind2_ in ran2_] ) && return ex_comprehension(ex, val, ind1, ran1, ind2, ran2, mod)
+        @capture(ex, [val_ for ind_ in ran_] ) &&
+            return ex_comprehension(ex, val, ind, ran, mod)
+        @capture(ex, [val_ for ind1_ in ran1_, ind2_ in ran2_] ) &&
+            return ex_comprehension(ex, val, ind1, ran1, ind2, ran2, mod)
 
         # Special words like contract must come before nameless
         @capture(ex, g_ = contract{ijk__}) && return ex_fun(g, :Contract, ijk)
@@ -123,7 +125,14 @@ end
 function ex_comprehension(ex, val, ind1, ran1, ind2, ran2, mod)
     name1 = QuoteNode(ind1)
     name2 = QuoteNode(ind2)
-    :( NamedDims.NamedDimsArray{($name1,$name2)}($ex) )
+    out = :( NamedDims.NamedDimsArray{($name1,$name2)}($ex) )
+
+    if (@capture(ran1, start_:stop_) && start != 1) || @capture(ran1, start_:step_:stop_) ||
+        (@capture(ran2, start_:stop_) && start != 1) || @capture(ran2, start_:step_:stop_)
+        return :( RangeWrap($out, ($ran1,$ran2)) )
+    else
+        return out
+    end
 end
 
 ##### Broadcasting #####

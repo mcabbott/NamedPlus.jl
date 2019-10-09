@@ -3,7 +3,7 @@
 wraps(AT) = [
     :( Diagonal{<:Any,$AT} ),
     :( Transpose{<:Any,$AT} ),
-    :( Adjoint{<:Any,$AT} ),
+    # :( Adjoint{<:Any,$AT} ),
     :( PermutedDimsArray{<:Any,<:Any,<:Any,<:Any,$AT} ),
 
     :( TransmutedDimsArray{<:Any,<:Any,<:Any,<:Any,$AT} ),
@@ -11,6 +11,9 @@ wraps(AT) = [
     # :( Slices{<:Any,<:Any,$AT} ), # JuliennedArrays
     # :( Align{<:Any,<:Any,$AT} ),
     # :( Align{<:Any,<:Any,<:AbstractArray{$AT}} ),
+
+    :( Stacked{<:Any,<:Any,$AT} ),
+    :( Stacked{<:Any,<:Any,<:AbstractArray{$AT}} ),
 ]
 
     # Symmetric{T,NamedDimsArray{L,T,N,S}} where {L,N},
@@ -35,9 +38,13 @@ wraps(AT) = [
         $(wraps(:(<:RangeWrap))...),
         $(wraps(:(<:NamedDimsArray{<:Any,<:Any,<:Any,<:RangeWrap}))...)
     }
+    const PlusUnion = Union{
+        NamedDimsArray,
+        RangeWrap,
+        $(wraps(:(<:NamedDimsArray))...),
+        $(wraps(:(<:RangeWrap))...),
+    }
 end
-
-const PlusUnion = Union{NamedUnion, RangeUnion}
 
 #################### GETINDEX ####################
 # Copied verbatim from NamedDims, parent -> nameless
@@ -49,6 +56,10 @@ for f in (:getindex, :view, :dotview)
             inds = NamedDims.order_named_inds(getnames(A); named_inds...)
             return Base.$f(A, inds...)
         end
+
+#=
+# Not sure you should define scalar indexing here at all, it should be handled already.
+# When there is a colon, then perhaps you ought to do something.
 
         Base.@propagate_inbounds function Base.$f(a::NamedUnion, inds::Vararg{<:Integer}) # Integer matches NamedDims
             # Easy scalar case, will just return the element
@@ -77,6 +88,7 @@ for f in (:getindex, :view, :dotview)
             L = NamedDims.remaining_dimnames_from_indexing(getnames(a), inds)
             return NamedDimsArray{L}(data)
         end
+=#
     end
 end
 

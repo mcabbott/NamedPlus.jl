@@ -211,3 +211,22 @@ end
     @test getranges(@named [x^2 for x in 1:2:10]) == (1:2:10,)
 
 end
+
+@testset "non-piracy" begin
+    for r in (Base.OneTo(5), 2:5)
+        for x in -2:7
+
+            @test NamedPlus.findfirst(==(x), r) == findfirst(==(x), collect(r))
+            @test NamedPlus.findfirst(isequal(x), r) == findfirst(isequal(x), collect(r))
+
+            for op in (isequal, Base.:(==), Base.:<, Base.:<=, Base.:>, Base.:>=)
+
+                @test NamedPlus.findall(op(x), r) == findall(op(x), collect(r))
+                @test NamedPlus.findall(op(x), r) isa AbstractRange
+                # T = typeof(NamedPlus.findall(op(x), r))
+                # T <: AbstractRange || @info "$op($x) $r  -> $T"
+            end
+
+        end
+    end
+end
