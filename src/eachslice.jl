@@ -58,6 +58,24 @@ function Base.collect(itr::Base.Generator{<:NamedDimsArray{L}}) where {L}
     NamedDimsArray{L}(collect(Base.Generator(itr.f, parent(itr.iter))))
 end
 
+for len = 2:5
+    # for pos = 1:len
+    #     types = [:AbstractArray for _=1:len]
+    #     types[pos] = :NamedDimsArray
+    types = [:NamedDimsArray for _=1:len]
+
+        @eval function Base.collect(itr::Base.Generator{<:Iterators.ProductIterator{<:Tuple{$(types...)}}})
+            newL = tuplemerge(map(NamedDims.names, itr.iter.iterators)...)
+            newI = Iterators.ProductIterator(map(NamedDims.unname, itr.iter.iterators))
+            NamedDimsArray{newL}(collect(Base.Generator(itr.f, newI)))
+        end
+
+    # end
+end
+
+tuplemerge(a, bs...) = (a..., tuplemerge(bs...)...)
+tuplemerge() = ()
+
 function Base.collect(itr::Base.Generator{<:EachSlice{<:NamedDimsArray{L}}}) where {L}
     newslices = EachSlice(parent(itr.iter.arr), itr.iter.cartiter, itr.iter.lookup) # nameless?
     innames = innernames(itr.iter, L)

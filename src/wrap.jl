@@ -1,19 +1,23 @@
 #################### UNION TYPES ####################
 
+using LinearAlgebra
+
+using TransmuteDims
+
 wraps(AT) = [
     :( Diagonal{<:Any,$AT} ),
     :( Transpose{<:Any,$AT} ),
     # :( Adjoint{<:Any,$AT} ),
     :( PermutedDimsArray{<:Any,<:Any,<:Any,<:Any,$AT} ),
 
-    :( TransmutedDimsArray{<:Any,<:Any,<:Any,<:Any,$AT} ),
+    # :( TransmutedDimsArray{<:Any,<:Any,<:Any,<:Any,$AT} ),
 
     # :( Slices{<:Any,<:Any,$AT} ), # JuliennedArrays
     # :( Align{<:Any,<:Any,$AT} ),
     # :( Align{<:Any,<:Any,<:AbstractArray{$AT}} ),
 
-    :( Stacked{<:Any,<:Any,$AT} ),
-    :( Stacked{<:Any,<:Any,<:AbstractArray{$AT}} ),
+    # :( Stacked{<:Any,<:Any,$AT} ),
+    # :( Stacked{<:Any,<:Any,<:AbstractArray{$AT}} ),
 ]
 
     # Symmetric{T,NamedDimsArray{L,T,N,S}} where {L,N},
@@ -28,21 +32,21 @@ wraps(AT) = [
 @eval begin
     const NamedUnion = Union{
         NamedDimsArray,
-        RangeWrap{<:Any,<:Any,<:NamedDimsArray},
+        RangeArray{<:Any,<:Any,<:NamedDimsArray},
         $(wraps(:(<:NamedDimsArray))...),
-        $(wraps(:(<:RangeWrap{<:Any,<:Any,<:NamedDimsArray}))...),
+        $(wraps(:(<:RangeArray{<:Any,<:Any,<:NamedDimsArray}))...),
     }
     const RangeUnion = Union{
-        RangeWrap,
-        NamedDimsArray{<:Any,<:Any,<:Any,<:RangeWrap},
-        $(wraps(:(<:RangeWrap))...),
-        $(wraps(:(<:NamedDimsArray{<:Any,<:Any,<:Any,<:RangeWrap}))...)
+        RangeArray,
+        NamedDimsArray{<:Any,<:Any,<:Any,<:RangeArray},
+        $(wraps(:(<:RangeArray))...),
+        $(wraps(:(<:NamedDimsArray{<:Any,<:Any,<:Any,<:RangeArray}))...)
     }
     const PlusUnion = Union{
         NamedDimsArray,
-        RangeWrap,
+        RangeArray,
         $(wraps(:(<:NamedDimsArray))...),
-        $(wraps(:(<:RangeWrap))...),
+        $(wraps(:(<:RangeArray))...),
     }
 end
 

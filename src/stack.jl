@@ -2,38 +2,6 @@ export stack, allcols, allrows, allslices
 
 #################### STACK TYPE ####################
 
-"""
-    stack(::Array{<:Array{T,IN},ON}) <: AbstractArray{T,IN+ON}
-
-Creates a very simple lazy `::Stacked` view of underlying array of arrays.
-The dimensions of the inner arrays come first:
-```
-julia> A = stack([1,2,3] .+ j*im for j=2:2:8)
-3×4 Stacked{Complex{Int64},2,Array{Array{Complex{Int64},1},1}}:
- 1+2im  1+4im  1+6im  1+8im
- 2+2im  2+4im  2+6im  2+8im
- 3+2im  3+4im  3+6im  3+8im
-```
-And acting on a `Generator` it has `collect`ed first.
-Some `Base` functions give things from inside:
-```
-julia> eachcol(A) |> typeof
-Array{Array{Complex{Int64},1},1}
-
-julia> view(A, :,1)
-3-element Array{Complex{Int64},1}:
- 1 + 2im
- 2 + 2im
- 3 + 2im
-```
-"""
-stack(x::AT) where {AT <: AbstractArray{<:AbstractArray{T,IN},ON}} where {T,IN,ON} =
-    Stacked{T, IN+ON, AT}(x)
-
-# struct Stacked{T,N,AT} <: AbstractArray{T,N}
-#     slices::AT
-# end
-
 #=
 
 using NamedPlus
@@ -54,29 +22,6 @@ using Debugger
 rewraplike(z, parent(z), nameless(parent(z)))
 
 =#
-
-Base.size(x::Stacked) = (size(first(x.slices))..., size(x.slices)...)
-Base.axes(x::Stacked) = (axes(first(x.slices))..., axes(x.slices)...)
-Base.parent(x::Stacked) = x.slices
-
-outer_ndims(x::Stacked) = ndims(x.slices)
-inner_ndims(x::Stacked) = ndims(x) - ndims(x.slices)
-
-function Base.getindex(x::Stacked, inds::Int...)
-    IN, ON = inner_ndims(x), outer_ndims(x)
-    outer = getindex(x.slices, ntuple(d -> inds[d+IN], ON)...)
-    getindex(outer, ntuple(d -> inds[d], IN)...)
-end
-
-stack(x::Base.Generator) = stack(collect(x))
-
-Base.eachcol(x::Stacked{T,2,<:AbstractArray{<:AbstractArray{T,1}}}) where {T} = x.slices
-
-Base.view(x::Stacked{T,2,<:AbstractArray{<:AbstractArray{T,1}}}, ::Colon, i::Int) where {T} = x.slices[i]
-
-# To allow general order, I think that like PermutedDimsArray you're going to need P & Q
-# but now QI/QO, and P with, umm, some special entries? negative?
-# Maybe it's easier to just wrap it if you must?
 
 #################### ALLCOLS ETC ####################
 
@@ -140,11 +85,10 @@ function allcols(x::Base.Generator)
     length(x) == 0 && return allcols(collect(x))
     a = first(x)
     B = similar(a, size(a)..., length(x))
-    # copyto!(view(B,..,1), a)
     B[..,1] .= a
     for (i,c) in enumerate(Iterators.drop(x,1))
-        # copyto!(view(B,..,i+1), c)
-        @inbounds B[..,i+1] .= c
+        @inbounds B = write_or_replace(B,c, ..,i+1)
+        # @inbounds B[..,i+1] .= c
     end
     B
 end
@@ -180,6 +124,32 @@ function allslices(x::Base.Generator; dims::Int)
     end
     B
 end
+
+"""
+    write_or_replace(A, val, inds...)
+
+This intends to be like `setindex!`,
+except that if the type of `val` doesn't fit in, then it
+makes a new array of larger type, and returns that.
+"""
+Base.@propagate_inbounds function write_or_replace(B::AbstractArray, val, inds...)
+    if all(map(i -> i isa Integer, inds))
+        Tv = typeof(val)
+    else
+        Tv = eltype(val)
+    end
+    if Tv <: eltype(B)
+        setindex!(B, val, inds...)
+        return B
+    else
+        T = Base.promote_typejoin(eltype(B), typeof(val))
+        C = T.(B)
+        setindex!(C, val, inds...)
+        return C
+    end
+end
+
+
 
 #= # Generators -- twice as quick.
 

@@ -15,6 +15,11 @@ z = NamedDimsArray(rand(26), :z)
     @test Base.names(v2) == (:j,)
     @test Base.names(t2,2) == :j
 
+    @test (@named [i^2 for i in 1:3]) isa NamedDimsArray
+    @test Base.names(@named [i/j for i in 1:3, j in 1:4]) == (:i, :j)
+
+    @test ranges(@named [i^2 for i in 1:2:5]) == (1:2:5,)
+
 end
 @testset "similar" begin
 
@@ -97,7 +102,7 @@ using LinearAlgebra, OMEinsum, TensorOperations
 @testset "wrapper types" begin
 
     d = Diagonal(v)
-    @test names(d) == (:j, :j)
+    @test getnames(d) == (:j, :j)
     @test typeof(nameless(d)) == Diagonal{Float64,Array{Float64,1}}
     @test d[j=2] === v[2] # indexing of NamedUnion
 
@@ -112,8 +117,8 @@ using LinearAlgebra, OMEinsum, TensorOperations
 
     p = PermutedDimsArray(t, (3,1,2));
     @test p == PermutedDimsArray(t, (:k,:i,:j))
-    @test Base.names(p) == (:k, :i, :j)
-    @test summary(p) == "k≤4 × i≤2 × j≤3 PermutedDimsArray{Float64,3,(3, 1, 2),(2, 3, 1),NamedDimsArray{(:i, :j, :k),Float64,3,Array{Float64,3}}}"
+    @test getnames(p) == (:k, :i, :j)
+    # @test summary(p) == "k≤4 × i≤2 × j≤3 PermutedDimsArray{Float64,3,(3, 1, 2),(2, 3, 1),NamedDimsArray{(:i, :j, :k),Float64,3,Array{Float64,3}}}"
     @test t === canonise(p)
 
     @test p[i=1, k=3, j=2] == t[1,2,3]
@@ -158,75 +163,4 @@ end
         @test w3 == w
     end
 
-end
-
-using OffsetArrays
-
-@testset "ranges" begin
-
-    R = RangeWrap(rand(1:99, 3,4), (['a', 'b', 'c'], 10:10:40))
-    N = Wrap(rand(1:99, 3,4), obs = ['a', 'b', 'c'], iter = 10:10:40) # combined constructor
-
-    # ===== access
-    @test R('c', 40) == R[3, 4]
-    @test R('b') == R[2,:]
-
-    @test N(obs='a', iter=40) == N[obs=1, iter=4]
-    @test N(obs='a') == N('a') == N[1,:]
-
-    # ===== recursion
-    @test getnames(Transpose(N)) == (:iter, :obs)
-    @test getranges(Transpose(N)) == (10:10:40, ['a', 'b', 'c'])
-
-    @test nameless(Transpose(N)) isa Transpose{Int, <:RangeWrap}
-
-    N2 = NamedDimsArray(nameless(N), getnames(N))
-    @test N2 isa NamedDimsArray{(:obs, :iter),Int,2,<:RangeWrap}
-    if VERSION >= v"1.3-rc2"
-        @test N2(obs='a', iter=40) == N2[obs=1, iter=4]
-    end
-
-    # ===== selectors
-    @test N(iter=Near(12.5)) == N[:,1]
-    @test_broken N(iter=Between(7,23)) == N[:,1:2]
-
-    @test R('a', Index[2]) == R[1,2]
-
-    # ===== mutation
-    V = Wrap([3,5,7,11], μ=10:10:40)
-    @test ranges(push!(V, 13)) == 10:10:50
-
-    # ===== offset
-    o = OffsetArray(rand(1:99, 5), -2:2)
-    w = Wrap(o, i='a':'e')
-    @test w[i=-2] == w('a')
-
-end
-
-@testset "comprehensions" begin
-
-    @test names(@named [x^2 for x in 1:2]) == (:x,)
-    @test names(@named [x/y for x in 1:2, y in 1:3]) == (:x,:y)
-
-    @test getranges(@named [x^2 for x in 1:2:10]) == (1:2:10,)
-
-end
-
-@testset "non-piracy" begin
-    for r in (Base.OneTo(5), 2:5)
-        for x in -2:7
-
-            @test NamedPlus.findfirst(==(x), r) == findfirst(==(x), collect(r))
-            @test NamedPlus.findfirst(isequal(x), r) == findfirst(isequal(x), collect(r))
-
-            for op in (isequal, Base.:(==), Base.:<, Base.:<=, Base.:>, Base.:>=)
-
-                @test NamedPlus.findall(op(x), r) == findall(op(x), collect(r))
-                @test NamedPlus.findall(op(x), r) isa AbstractRange
-                # T = typeof(NamedPlus.findall(op(x), r))
-                # T <: AbstractRange || @info "$op($x) $r  -> $T"
-            end
-
-        end
-    end
 end

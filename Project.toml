@@ -4,12 +4,14 @@ authors = ["Michael Abbott"]
 version = "0.0.1"
 
 [deps]
+AxisRanges = "7d985058-612f-5500-9f06-de9955ae0899"
 EllipsisNotation = "da5c29d0-fa7d-589e-88eb-ea29b0a81949"
-JuliennedArrays = "5cadff95-7770-533d-a838-a1bf817ee6e0"
+LazyStack = "1fad7336-0346-5a1a-a56f-a06ba010965b"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 NamedDims = "356022a1-0364-5f58-8944-0da4b18d706f"
 OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
+RecipesBase = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
 Requires = "ae029012-a4dd-5104-9daa-d747884805df"
 Strided = "5e0ebb24-38b0-5f93-81fe-25c709ecae67"
 TransmuteDims = "24ddb15e-299a-5cc3-8414-dbddc482d9ca"

@@ -20,9 +20,9 @@ For any wrapper type which changes the order / number of dimensions,
 you will need to define `NamedPlus.outmap(x, names) = outernames`.
 """
 
-@doc names_doc
-Base.names(x::NamedUnion) = getnames(x)
-Base.names(x::NamedUnion, d::Int) = getnames(x, d)
+# @doc names_doc
+# Base.names(x::NamedUnion) = getnames(x)
+# Base.names(x::NamedUnion, d::Int) = getnames(x, d)
 
 @doc names_doc
 hasnames(x::NamedDimsArray) = true
