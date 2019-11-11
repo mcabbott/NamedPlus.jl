@@ -182,7 +182,8 @@ function ex_tensor(ex, left=nothing)
             Aname, Aperm = gensym(A), gensym(:perm)
             inds = map(QuoteNode, ijk)
             append!(out.args, (quote
-                if $A isa NamedPlus.NamedUnion
+                # if $A isa NamedPlus.NamedUnion
+                if $A isa NamedDims.NamedDimsArray
                     $Aperm = dim($A, ($(inds...),))
                     $Aname = Base.permutedims(TensorOperations.Strided.maybestrided(NamedPlus.nameless($A)), $Aperm)
                 else
