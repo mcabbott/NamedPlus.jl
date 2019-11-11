@@ -9,6 +9,9 @@ export NamedDims, NamedDimsArray, dim, unname
 include("recursion.jl")
 export getnames, nameless
 
+include("int.jl")
+export NamedInt
+
 include("macro.jl")
 
 include("permute.jl")
