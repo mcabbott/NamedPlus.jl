@@ -5,16 +5,20 @@
     join(A, (:i, :j) => :i_j)
     join(A, :i, :j) # => :i_j by default
 
-This replaces two dimensions `i, j` with a combined one `i_j`, by reshaping.
-If the dimensions aren't adjacent, or `A` is a lazy `Transpose` etc, then it will copy `A`.
+This replaces two dimensions `i, j` with a combined one `i_j`.
+
+If the dimensions are adjecent and in the correct order
+(and `A` is not a lazy `Transpose` etc) then this will be done by reshaping.
+But if the dimensions aren't adjacent, or are in the wrong order,
+then it will copy `A`.
 """
 Base.join(A::NamedUnion, i::Symbol, j::Symbol) = join(A, (i,j) => _join(i,j))
 Base.join(A::NamedUnion, ij::Tuple) = join(A, ij...)
 
 function Base.join(A::NamedUnion, p::Pair{<:Tuple,Symbol})
-    d1, d2 = dim(A, p.first)
+    d1, d2 = NamedDims.dim(A, p.first)
 
-    if abs(d1 - d2) == 1 && nameless(A) isa StridedArray # is this the right thing?
+    if d2 == d1+1 && nameless(A) isa StridedArray
         sz = ntuple(ndims(A)-1) do d
             d < min(d1,d2) ? size(A,d) :
             d==min(d1,d2) ? size(A,d1) * size(A,d2) :
@@ -25,18 +29,35 @@ function Base.join(A::NamedUnion, p::Pair{<:Tuple,Symbol})
             d==min(d1,d2) ? p.second :
             getnames(A, d+1)
         end
+        # @info "noperm"
         return NamedDimsArray{nm}(reshape(nameless(A), sz))
 
-    elseif abs(d1 - d2) == 1
+    elseif d2 == d1 + 1
         return join(copy(A), p)
 
-    else
-        s = abs(d1-d2) - 1 # amount to cycle by
+    elseif d1 < d2
+        # 1 2 3* 4 5 6** 7 8
+        # 1 2 4 5 3* 6** 7 8
         perm = ntuple(ndims(A)) do d
-            d < min(d1,d2) ? d :
-            d >= max(d1,d2) ? d :
-            mod(d-min(d1,d2)+s-1, min(d1,d2):max(d1,d2)-1)
+            d < d1 ? d :
+            d < d2-1 ? d+1 :
+            d == d2-1 ? d1 :
+            d == d2 ? d2 :
+            d
         end
+        # @info "d1 < d2" perm
+        return join(permutedims(A, perm), p)
+    elseif d1 > d2
+        # 1 2 3** 4 5 6* 7 8
+        # 1 2 4 5 6* 3** 7 8
+        perm = ntuple(ndims(A)) do d
+            d < d2 ? d :
+            d < d1-1 ? d+1 :
+            d == d1-1 ? d1 :
+            d == d1 ? d2 :
+            d
+        end
+        # @info "d1 > d2" perm
         return join(permutedims(A, perm), p)
     end
     error("not yet")
