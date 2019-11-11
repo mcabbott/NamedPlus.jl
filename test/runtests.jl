@@ -1,4 +1,5 @@
 using Test, NamedPlus
+import NamedDims
 
 v = NamedDimsArray(rand(3), :j)
 m = NamedDimsArray(rand(2,3), (:i,:j))
@@ -12,23 +13,16 @@ z = NamedDimsArray(rand(26), :z)
         m2{i,j} = rand(2,3)
         t2{i,j,k} = rand(2,3,4)
     end
-    @test Base.names(v2) == (:j,)
-    @test Base.names(t2,2) == :j
+    @test NamedDims.names(v2) == (:j,)
+    @test_skip names(t2,2) == :j
 
     @test (@named [i^2 for i in 1:3]) isa NamedDimsArray
-    @test Base.names(@named [i/j for i in 1:3, j in 1:4]) == (:i, :j)
+    @test NamedDims.names(@named [i/j for i in 1:3, j in 1:4]) == (:i, :j)
 
-    @test ranges(@named [i^2 for i in 1:2:5]) == (1:2:5,)
-
-end
-@testset "similar" begin
-
-    @test size(similar(t, :k)) == (4,)
-    @test eltype(similar(t, Int, :k)) == Int
-    @test size(similar(m, z, :i, :z)) == (2,26)
-    @test names(similar(v, m, t, (:i, :k))) == (:i, :k)
+    @test_skip ranges(@named [i^2 for i in 1:2:5]) == (1:2:5,)
 
 end
+
 @testset "unname with names" begin
 
     @test unname(m, (:j, :i)) === transpose(parent(m))
@@ -36,18 +30,18 @@ end
     @test unname(t, (:i,:j,:k)) === parent(t)
     @test unname(t, (:i,:k,:j)) === PermutedDimsArray(parent(t), (1,3,2))
 
-    @test names(permutenames(m, (:i, :k, :j))) == (:i, :_, :j)
-    @test names(permutenames(v, (:i, :j, :k))) == (:_, :j, :_)
+    @test NamedDims.names(permutenames(m, (:i, :k, :j))) == (:i, :_, :j)
+    @test NamedDims.names(permutenames(v, (:i, :j, :k))) == (:_, :j, :_)
 
 end
 
 # broken without TransmuteDims master?
 @testset "broadcasting by name" begin
 
-    @test names(m ./ v') == (:i, :j)
+    @test NamedDims.names(m ./ v') == (:i, :j)
     @test_throws DimensionMismatch m ./ v
 
-    @test names(@named w{i,k,j} = t .+ m ./ v) == (:i, :k, :j)
+    @test NamedDims.names(@named w{i,k,j} = t .+ m ./ v) == (:i, :k, :j)
     @named z{i,j,k} = t .+ m ./ v
     @test z == t .+ m ./ v'
 
@@ -56,11 +50,11 @@ end
 @testset "rename & prime" begin
 
     @test prime(:z) == :z′
-    @test names(prime(m, first)) == (:i′, :j)
-    @test names(prime(m, 2)) == (:i, :j′)
+    @test NamedDims.names(prime(m, first)) == (:i′, :j)
+    @test NamedDims.names(prime(m, 2)) == (:i, :j′)
 
-    @test names(rename(m, :j => :k)) == (:i, :k)
-    @test names(rename(m, (:a, :b))) == (:a, :b)
+    @test NamedDims.names(rename(m, :j => :k)) == (:i, :k)
+    @test NamedDims.names(rename(m, (:a, :b))) == (:a, :b)
 
     using NamedPlus: _prime
 
