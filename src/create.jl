@@ -57,7 +57,11 @@ rand(rng::AbstractRNG) in Random at
 
 # Random.default_rng()::AbstractRNG
 using Random
-
+if VERSION < v"1.3-"
+    RNG() = Random.GLOBAL_RNG
+else
+    const RNG = Random.default_rng
+end
 # @doc zero_doc
 # Base.rand(; kw...) = rand(Float64; kw...)
 # @doc zero_doc
@@ -73,14 +77,14 @@ function Base.rand(T::Type{Tn}; kw...) where {Tn<:Number}
     if length(kw) >= 1
         NamedDimsArray(rand(T, kw.data...), kw.itr)
     else
-        rand(Random.default_rng(), T) # @btime rand() unchanged
+        rand(RNG(), T) # @btime rand() unchanged
     end
 end
 function Base.randn(T::Type{Tn}; kw...) where {Tn<:Number}
     if length(kw) >= 1
         NamedDimsArray(randn(T, kw.data...), kw.itr)
     else
-        randn(Random.default_rng(), T)
+        randn(RNG(), T)
     end
 end
 
