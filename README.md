@@ -19,6 +19,7 @@ rename(m, :i => :z)                      # rename just i
 d,k = size(m); @show d                   # NamedInt, which exists for:
 z = zeros(d,d')                          # ones, fill, etc, plus ranges:
 z .= [sqrt(i) for i in 1:d, i′ in 1:d']  # comprehensions have names with PR#81
+reshape(g, k,:,d) .+ g[end, d]
 
 ones(i=1, j=4) .+ rand(Int8, i=3)        # base piracy, but convenient.
 ```

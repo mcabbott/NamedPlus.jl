@@ -17,6 +17,7 @@ include("macro.jl")
 include("permute.jl")
 
 include("create.jl")
+export diagonal, outer
 
 include("reshape.jl")
 
