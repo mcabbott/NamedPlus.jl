@@ -42,7 +42,7 @@ Base.show(io::IO, ::MIME"text/plain", x::NamedInt{L}) where {L} =
     print(io, "NamedInt($L=", x.val, ")")
 const ᵅ = NamedInt(1, :_)
 Base.:*(x::Integer, y::NamedInt{L}) where {L} = NamedInt(x * y.val, L)
-Base.:*(x::NamedInt{Lx}, y::NamedInt{Ly}) where {Lx, Ly} = NamedInt(x.val * y.val, Symbol(Lx, :_, Ly))
+Base.:*(x::NamedInt{Lx}, y::NamedInt{Ly}) where {Lx, Ly} = NamedInt(x.val * y.val, _join(Lx, Ly))
 
 Base.convert(::Type{T}, x::NamedInt) where {T<:Number} = convert(T, x.val)
 for f in [:abs, :abs2, :sign, :string, :Int, :float, :-]
@@ -85,12 +85,19 @@ end
 
 Base.fill(val, ni::NamedInt, rest::Integer...) = named_fill(val, ni, rest...)
 Base.fill(val, i::Integer, ni::NamedInt, rest::Integer...) = named_fill(val, i, ni, rest...)
+Base.fill(val, ni::NamedInt, ni′::NamedInt, rest::Integer...) = named_fill(val, ni, ni′, rest...)
+
 named_fill(val, sz::Integer...) = NamedDimsArray(fill(val, value.(sz)...), name.(sz))
 
-Base.reshape(A::AbstractArray, ni::NamedInt, rest::Integer...) = named_reshape(A, ni, rest...)
-Base.reshape(A::AbstractArray, i::Integer, ni::NamedInt, rest::Integer...) = named_reshape(A, i, ni, rest...)
-Base.reshape(A::AbstractArray, ni::NamedInt, ni′::NamedInt, rest::Integer...) = named_reshape(A, ni, ni′, rest...)
-named_reshape(A::AbstractArray, sz::Integer...) = NamedDimsArray(reshape(A, value.(sz)...), name.(sz))
+const CorI = Union{Colon,Integer}
+value(::Colon) = (:)
+name(::Colon) = :_
+
+Base.reshape(A::AbstractArray, ni::NamedInt, rest::CorI...) = named_reshape(A, ni, rest...)
+Base.reshape(A::AbstractArray, i::CorI, ni::NamedInt, rest::CorI...) = named_reshape(A, i, ni, rest...)
+Base.reshape(A::AbstractArray, ni::NamedInt, ni′::NamedInt, rest::CorI...) = named_reshape(A, ni, ni′, rest...)
+
+named_reshape(A::AbstractArray, sz::CorI...) = NamedDimsArray(reshape(unname(A), value.(sz)...), name.(sz))
 
 
 

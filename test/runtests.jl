@@ -96,6 +96,7 @@ end
     ni, nj = size(m)
     @test ni isa NamedInt
 
+    # Creators
     @test names(zeros(ni, nj)) == (:i, :j)
     @test names(ones(ni, nj)) == (:i, :j)
     @test names(rand(ni, nj)) == (:i, :j)
@@ -106,8 +107,13 @@ end
     @test names(rand(Int8, ni, nj)) == (:i, :j)
     @test names(randn(Float64, ni, nj)) == (:i, :j)
 
+    # Ranges
     @test names(1:ni) == (:i,)
     @test_skip names([x^i for x in 1:nj, i in 1:ni]) == (:j, :i) # need my PR
+
+    # reshape
+    @test names(reshape(rand(6), ni, nj)) == (:i, :j)
+    @test names(reshape(rand(3,2), nj, :)) == (:j, :_)
 
 end
 @testset "base piracy" begin
@@ -183,7 +189,7 @@ end
     end
 
 end
-
+@info "Done with own tests, now running those of NamedDims.jl to check that rampant piracy hasn't sunk anything important"
 @testset "test from NamedDims" begin
 
     # Check that my piracy doesn't break anything
