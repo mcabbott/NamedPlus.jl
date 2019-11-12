@@ -2,12 +2,13 @@
 #################### ZERO, ONES ####################
 
 zero_doc = """
-    zeros(; r=2)         == zeros((r=2,))
-    ones(Int8; r=2, c=3) == ones(Int8, (r=2, c=3))
-    fill(3.14; c=3)      == fill(3.14, (c=3,))
+    zeros(; r=2)
+    ones(Int8; r=2, c=3)
+    fill(3.14; c=3)
 
 These are piratically overloaded to make `NamedDimsArray`s.
 The zero-dimensional methods like `fill(3)` should stil work fine.
+See also `rand(Float64; i=10)` etc.
 """
 @doc zero_doc
 Base.zeros(; kw...) = zeros(Float64; kw...)
@@ -72,6 +73,7 @@ end
     randn(Float64; c=3, d=4)
 
 Keyword overload for `rand` needs a type, otherwise too piratical.
+See also `zeros(; c=3, d=4)`, which works with or without the type.
 """
 function Base.rand(T::Type{Tn}; kw...) where {Tn<:Number}
     if length(kw) >= 1
@@ -88,10 +90,48 @@ function Base.randn(T::Type{Tn}; kw...) where {Tn<:Number}
     end
 end
 
+"""
+    range(; i=10) == NamedDimsArray(1:10, :i)
+
+Keyword piracy to make ranges.
+"""
+function Base.range(; kw...)
+    if length(kw.itr) == 1
+        NamedDimsArray(_ensure_range(kw.data[1]), kw.itr)
+    elseif length(kw.itr) >= 2
+        data = outer(_ensure_range.(Tuple(kw.data))...)
+        NamedDimsArray(data, kw.itr)
+    else
+        error("range() with no arguments still doesn't mean anything")
+    end
+end
+
+_ensure_range(n::Integer) = Base.OneTo(n)
+_ensure_range(r::AbstractRange) = r
+_ensure_range(r) = error("not sure what to do with $r, expected an integer or a range")
+
+#################### OUTER ####################
+
+"""
+    outer(x, y) = outer(*, x, y)
+
+This inserts enough new dimensions, then broadcasts `x .* y′`.
+"""
+outer(xs::AbstractArray...) = outer(*, xs...)
+
+function outer(f::Function, x::AbstractArray, ys::AbstractArray...)
+    dims = ndims(x)
+    views = map(ys) do y
+        newaxes = ntuple(_->newaxis, dims)
+        colons = ntuple(_->(:), ndims(y))
+        view(y, newaxes..., colons...)
+    end
+    Broadcast.broadcast(f, x, views...)
+end
+
+const newaxis = [CartesianIndex()]
 
 #################### DIAGONAL ####################
-
-export diagonal
 
 """
     diagonal(m)
