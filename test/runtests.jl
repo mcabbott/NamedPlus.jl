@@ -65,21 +65,29 @@ end
 
     @test (@inferred (() -> prime(:a))() ;true)
     @test (@inferred (() -> _prime((:i,:j,:k), Val(1)))() ;true)
+    @test 0 == @allocated (() -> prime(:a))()
+    @test 0 == @allocated (() -> _prime((:i,:j,:k), Val(1)))()
 
 end
 @testset "split & join" begin
 
     @test names(join(t, (:i,:j) => :ij)) == (:ij, :k)
-    t1 = join(t, :i,:k)
-    @test names(t1) == (:j, :i_k)
+    t1 = join(t, :i,:k)  # these are not neighbours
+    t1′ = join(t, :k,:i) # reverse order
+    @test names(t1) == (:j, :iᵡk)
+    @test names(t1′) == (:j, :kᵡi)
 
     @test size(split(m, :i => (:i1, :i2), (1,2))) == (1, 2, 3)
 
     @test t == split(join(t, (:i,:j) => :ij), :ij => (:i,:j), (2,3))
 
-    t2 = split(t1, :i_k => (:i,:k), (2,4));
+    t2 = split(t1, :iᵡk => (:i,:k), (2,4));
     @test names(t2) == (:j, :i, :k)
     @test size(t2) == (3, 2, 4)
+    t2′ = split(t1′, :kᵡi => (k=4, i=2));
+    t2′′ = split(t1′, :kᵡi => (i=2, k=4));
+    @test t2[j=1] == transpose(t2′[j=1])
+    @test_broken t2[j=1] == t2′′[j=1]
 
     t2[1,1,1] = 99
     @test t1[1,1,1] == 99
@@ -89,6 +97,8 @@ end
 
     @test (@inferred (() -> _join(:i, :j))() ;true)
     @test (@inferred (() -> _split(_join(:i, :j)))() ;true)
+    @test 0 == @allocated (() -> _join(:i, :j))()
+    @test 0 == @allocated (() -> _split(_join(:i, :j)))()
 
 end
 @testset "named int" begin
@@ -113,7 +123,7 @@ end
 
     # reshape
     @test names(reshape(rand(6), ni, nj)) == (:i, :j)
-    @test names(reshape(rand(3,2), nj, :)) == (:j, :_)
+    @test names(reshape(rand(1,6,1), nj, :)) == (:j, :_)
 
 end
 @testset "base piracy" begin
@@ -125,6 +135,7 @@ end
     @test ones(3) isa Array{Float64, 1}
     @test zeros(3,4) isa Array{Float64, 2}
     @test fill(3.14, 3,4,5) isa Array{Float64, 3}
+    @test range(3, stop=4) === 3:4
 
     @test rand() isa Float64
     @test randn() isa Float64
@@ -144,8 +155,11 @@ end
 
     @test names(rand(Float64, i=3)) == (:i,)
     @test names(randn(Float64, i=3, j=4)) == (:i,:j)
+    @test eltype(rand(Int8, i=3)) == Int8
 
-    @test_broken eltype(randn(Int8, i=3)) == Int8
+    @test names(range(i=10)) == (:i,)
+    @test parent(range(i=10)) isa Base.OneTo
+    @test names(range(i=3:4)) == (:i,)
 
 end
 

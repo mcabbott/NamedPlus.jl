@@ -2,10 +2,10 @@
 #################### SPLIT / COMBINE ####################
 
 """
-    join(A, (:i, :j) => :i_j)
-    join(A, :i, :j) # => :i_j by default
+    join(A, (:i, :j) => :iᵡj)
+    join(A, :i, :j) # => :iᵡj by default
 
-This replaces two dimensions `i, j` with a combined one `i_j`.
+This replaces two dimensions `i, j` with a combined one `iᵡj`.
 
 If the dimensions are adjecent and in the correct order
 (and `A` is not a lazy `Transpose` etc) then this will be done by reshaping.
@@ -65,25 +65,25 @@ end
 
 # @btime (() -> _join(:i, :j))() # 0 allocations
 _join(i::Symbol, j::Symbol) = _join(Val(i), Val(j))
-@generated _join(::Val{i}, ::Val{j}) where {i,j} = QuoteNode(Symbol(i, :_, j))
+@generated _join(::Val{i}, ::Val{j}) where {i,j} = QuoteNode(Symbol(i, :ᵡ, j))
 
-# @btime (() -> _split(Symbol("i⊗j")))()  # 0 allocations, but 4 μs!
-# @btime (() -> _split($(QuoteNode(Symbol("i⊗j")))))()  # 0 allocations, but 4 μs!
+# @btime (() -> _split(Symbol("iᵡj")))()  # 0 allocations, but 4 μs!
+# @btime (() -> _split($(QuoteNode(Symbol("iᵡj")))))()  # 0 allocations, but 4 μs!
 # @btime (() -> _split(_join(:i, :j)))()  # 0 allocations, 1.4 ns
 _split(ij::Symbol) = _split(Val(ij))
 @generated _split(::Val{ij}) where {ij} = Tuple(map(QuoteNode∘Symbol, split(string(ij), '_')))
 
 """
-    split(A, :i_j => (i=2, j=3))
-    split(A, :i_j => (:i, :j), (2,3))
+    split(A, :iᵡj => (i=2, j=3))
+    split(A, :iᵡj => (:i, :j), (2,3))
 
-This replaces the dimension named `i_j` with separate `i, j` by reshaping.
+This replaces the dimension named `iᵡj` with separate `i, j` by reshaping.
 The final size of the two new dimension should be given afterwards;
 you may write `(2,:)` etc.
 
-    split(A, :i_j => (:i, :j), B)
+    split(A, :iᵡj => (:i, :j), B)
 
-The final sizes can also bew read from another `B::NamedDimsArray` with names `i,j`.
+The final sizes can also bew read from another `B::NamedDimsArray` with names `i, j`.
 """
 Base.split(A::NamedUnion, pair::Pair{Symbol,<:NamedTuple}) =
     split(A, pair.first => keys(pair.second), Tuple(pair.second))
