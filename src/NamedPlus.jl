@@ -28,4 +28,6 @@ export prime
 
 # include("plots.jl")
 
+include("show.jl")
+
 end # module
