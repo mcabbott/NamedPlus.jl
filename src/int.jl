@@ -31,30 +31,37 @@ struct NamedInt{L} <: Integer
     val::Int
     NamedInt(;kw...) = new{first(kw.itr)}(first(kw.data))
     NamedInt(val::Integer, symb::Symbol) = new{symb}(val)
+    NamedInt{symb}(val::Integer) where {symb} = new{symb}(val)
 end
 name(x::NamedInt{L}) where {L} = L
-name(x::Int) = :_
+name(x::Number) = :_
 value(x::NamedInt) = x.val
-value(x::Int) = x
+value(x::Number) = x
 
 Base.show(io::IO, x::NamedInt{L}) where {L} = print(io, x.val, "ᵅ")
 Base.show(io::IO, ::MIME"text/plain", x::NamedInt{L}) where {L} =
     print(io, "NamedInt($L = ", x.val, ")")
+
+# These operation preserve names, firstly to make printout re-pastable, but also...
 const ᵅ = NamedInt(1, :_)
 Base.:*(x::Integer, y::NamedInt{L}) where {L} = NamedInt(x * y.val, L)
 Base.:*(x::NamedInt{Lx}, y::NamedInt{Ly}) where {Lx, Ly} = NamedInt(x.val * y.val, _join(Lx, Ly))
 Base.literal_pow(::typeof(^), x::NamedInt{L}, ::Val{2}) where {L} =
     NamedInt(Base.literal_pow(^, x.val, Val(2)), _join(L,L))
-Base.literal_pow(::typeof(^), x::NamedInt, p::Val) = Base.literal_pow(^, x.val, p)
 
-Base.convert(::Type{T}, x::NamedInt) where {T<:Number} = convert(T, x.val)
-for f in [:abs, :abs2, :sign, :string, :Int, :float, :-]
-    @eval Base.$f(x::NamedInt) = $f(x.val)
+# These operations forget the name:
+Base.literal_pow(::typeof(^), x::NamedInt, p::Val) = Base.literal_pow(^, x.val, p)
+for f in [:abs, :abs2, :sign, :string, :Int, :float, :-, :OneTo]
+    @eval Base.$f(x::NamedInt) = Base.$f(x.val)
 end
+for (T,S) in [(:NamedInt, :Number), (:Number, :NamedInt), (:NamedInt, :NamedInt)]
+    for op in [:(==), :<, :>, :>=, :<=]
+        @eval Base.$op(x::$T, y::$S) = $op(value(x), value(y))
+    end
+end
+Base.convert(::Type{T}, x::NamedInt) where {T<:Number} = convert(T, x.val)
 Base.promote_rule(::Type{<:NamedInt}, ::Type{T}) where {T<:Number} = T
 
-(c::Colon)(start::Integer, stop::NamedInt{L}) where {L} =
-    NamedDimsArray(c(start, stop.val), L)
 
 #################### USING IT ####################
 
@@ -71,6 +78,9 @@ Base.length(x::NamedDimsArray{L,T,1}) where {L,T} = NamedInt(length(parent(x)), 
 prime(x::NamedInt) = NamedInt(x.val, prime(name(x)))
 
 LinearAlgebra.adjoint(x::NamedInt) = prime(x)
+
+(c::Colon)(start::Integer, stop::NamedInt{L}) where {L} =
+    NamedDimsArray(c(start, stop.val), L)
 
 for fun in [:zeros, :ones, :rand, :randn]
     newfun = Symbol(:named_, fun)
