@@ -107,7 +107,7 @@ end
     @test names(randn(Float64, ni, nj)) == (:i, :j)
 
     @test names(1:ni) == (:i,)
-    @test names([x^i for x in 1:nj, i in 1:ni]) == (:j, :i)
+    @test_skip names([x^i for x in 1:nj, i in 1:ni]) == (:j, :i) # need my PR
 
 end
 @testset "base piracy" begin
@@ -139,8 +139,9 @@ end
     @test names(rand(Float64, i=3)) == (:i,)
     @test names(randn(Float64, i=3, j=4)) == (:i,:j)
 
-end
+    @test_broken eltype(randn(Int8, i=3)) == Int8
 
+end
 
 using LinearAlgebra, TensorOperations
 
