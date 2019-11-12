@@ -33,8 +33,49 @@ end
     @test unname(t, (:i,:j,:k)) === parent(t)
     @test unname(t, (:i,:k,:j)) === PermutedDimsArray(parent(t), (1,3,2))
 
-    @test names(align(m, (:i, :k, :j))) == (:i, :_, :j)
-    @test names(align(v, (:i, :j, :k))) == (:_, :j, :_)
+    # @test names(align(m, (:i, :k, :j))) == (:i, :_, :j)
+    # @test names(align(v, (:i, :j, :k))) == (:_, :j, :_)
+
+end
+@testset "align" begin
+
+    v1 = align(v, (:j, :k))
+    @test v1 == v
+    v1 = align(v', (:j, :k))
+    @test v1 == v
+
+    v2 = align(v, (:x, :j, :y))
+    @test v2 == v'
+    v2 = align(v', (:x, :j, :y))
+    @test v2 == v'
+
+    m1 = align(m, (:i, :j))
+    @test names(m1) == (:i, :j)
+    @test size(m1) == (2,3)
+    m1 = align(m, (:i, :j, :x, :y))
+    @test names(m1) == (:i, :j)
+    @test size(m1) == (2,3)
+
+    m2 = align(m, (:j,:i))
+    @test names(m2) == (:j, :i)
+    @test size(m2) == (3,2)
+    m2 = align(m, (:j,:i, :x, :y))
+    @test names(m2) == (:j, :i)
+    @test size(m2) == (3,2)
+
+    m3 = align(m, (:i, :z, :j))
+    @test names(m3) == (:i, :_, :j)
+    @test size(m3) == (2,1,3)
+    m3 = align(m, (:i, :x, :j, :y, :z))
+    @test names(m3) == (:i, :_, :j)
+    @test size(m3) == (2,1,3)
+
+    m4 = align(m, (:w, :j, :z, :i))
+    @test names(m4) == (:_, :j, :_, :i)
+    @test size(m4) == (1,3,1,2)
+    m4 = align(m, (:w, :j, :z, :i, :x, :y))
+    @test names(m4) == (:_, :j, :_, :i)
+    @test size(m4) == (1,3,1,2)
 
 end
 #=

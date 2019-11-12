@@ -21,42 +21,75 @@ NamedDims.unname(A::NamedUnion, names::NTuple{N, Symbol}) where {N} =
     align(A, names)
     align(A, B)
 
-This is a bit like `permutedims`, but does not copy the data to a new array in the given order,
-and instead wraps it in `Transpose` or `PemutedDimsArray` as nedded.
+This is a lazy generalised `permutedims`. It will do nothing if the names match up,
+or insert `Transpose` etc. if they need to be permuted.
+Instead of providing `names`, you can also provide another array `B` whose named should be used.
 
-If `A` has fewer dimensions than `names`, then trivial dimensions are inserted
-using a `TransmutedDimsArray`.
+If there are extra dimensions in `names` not found in `A`, then trivial dimensions are inserted.
+And if there are dimensions of `A` not found in `names`, these are put at the end, so that the
+first few dimensions match `names`. This ensures that the result can be broadcast with `B`.
 
-Instead of providing names, you can also provide another array whose named should be used.
+It should error if wildcards in either set of names make this process ambiguous.
 
-Note that `canonise(A)` unwraps `Diagonal{...,Vector}` and `Transpose{...,Vector}`
-to have just one index.
+Before performing these steps, is calls `canonise(A)` which unwraps any lazy wrappers,
+so that for instance the trivial dimension of `transpose(`named vector`)` is dropped.
 """
-align(A::NamedUnion, B::NamedDimsArray{L}) where {L} = align(A, L)
+align(A::NamedUnion, ::NamedDimsArray{L}) where {L} = align(A, L)
 
-function align(A::NamedUnion, target::Tuple{Vararg{Symbol}}; lazy::Bool=true)
+function align(A::NamedUnion, target::Tuple{Vararg{Symbol}})
     B = canonise(A)
-    T = eltype(A)
-
     namesB = getnames(B)
+
+    allunique(namesB) || error("input must have unique names, got $namesB (after canonicalisation)")
+    Base.sym_in(:_, target) && Base.sym_in(:_, namesB) && error("if both input and target have wildcards then result is always ambigous.")
+
     perm = map(n -> NamedDims.dim_noerror(namesB, n), target)
 
     if perm == ntuple(identity, ndims(B))
         return B
 
-    elseif (perm == (2,1) || perm == (0,1)) && T <: Number
+    elseif !NamedDims.tuple_issubset(namesB, target)
+        # Some dimensions of B aren't in the target, add them to the end
+        Base.sym_in(:_, target) && error("wildcard in target $target means the result is ambigous")
+
+        extras = filter(n -> n ∉ target, namesB)
+        return align(B, (target..., extras...))
+
+    elseif (perm == (2,1) || perm == (0,1)) && eltype(A) <: Number
         return transpose(B)
 
     elseif 0 in perm
-        L = map(n -> Base.sym_in(n, namesB) ? n : :_, target)
-        out = NamedDimsArray{L}(Transmute{perm}(nameless(B)))
-        return out
+        # Some names in target were not found in B, insert trivial dims
+        # C = Transmute{perm}(nameless(B))
+        # return NamedDimsArray{target}(C)
+
+        # Fancier version which trims trailing dims, and may return transpose etc.
+        short_perm = _trim_trailing_zeros(perm)
+        L = ntuple(length(short_perm)) do i
+            n = target[i]
+            Base.sym_in(n, namesB) ? n : :_
+        end
+        if length(short_perm) < length(perm)
+            return align(B, L)
+        else
+            C = Transmute{short_perm}(nameless(B))
+            return NamedDimsArray{L}(C)
+        end
 
     else
         C = PermutedDimsArray(nameless(B), perm)
         return NamedDimsArray{target}(C)
     end
 end
+
+_trim_trailing_zeros(tup) = reverse(_trim_leading_zeros(reverse(tup)...))
+_trim_leading_zeros(x, ys...) = x==0 ? _trim_leading_zeros(ys...) : (x, ys...)
+_trim_leading_zeros() = ()
+# @btime _trim_trailing_zeros((1,2,0,3,0)) # 1μs
+
+# https://github.com/JuliaLang/julia/pull/32968
+Base.filter(f, xs::Tuple) = Base.afoldl((ys, x) -> f(x) ? (ys..., x) : ys, (), xs...)
+Base.filter(f, t::Base.Any16) = Tuple(filter(f, collect(t)))
 
 
 #################### PERMUTE ####################
@@ -119,52 +152,51 @@ This should not affect any operations which work on the index names,
 but will confuse anything working on index positions.
 
 `NamedDimsArray{L,T,2,Diagonal}` is unwrapped only if it has two equal names,
-which `Diagonal{T,NamedVec}` always has, and thus is always unwrapped to a vector,
+which `Diagonal{T,NamedVec}` always has.
 """
 canonise(x) = begin
     # @info "nothing to canonicalise?" typeof(x)
     x
 end
 
+grandparent(x) = parent(parent(x))
+
 # diagonal / Diagonal
-canonise(x::Diagonal{T,<:NamedDimsArray{L,T,1}}) where {L,T} = x.diag
-canon_names(::Type{Diagonal{T,<:NamedDimsArray{L,T,1}}}) where {L,T} = L
+canonise(x::Diagonal{T,<:NamedDimsArray}) where {T} = parent(x)
 
-canonise(x::NamedDimsArray{L,T,2,<:Diagonal{T,<:AbstractArray{T,1}}}) where {L,T<:Number} =
-    L[1] === L[2] ? NamedDimsArray{(L[1],)}(x.data.diag) : x
-canon_names(::Type{NamedDimsArray{L,T,2,<:Diagonal{T,<:AbstractArray{T,1}}}}) where {L,T<:Number} =
-    L[1] === L[2] ? (L[1],) : L # TODO make canon_names for all the rest? automate?
-                                # now you could use outmap() for this.
-
-# PermutedDimsArray
-canonise(x::PermutedDimsArray{T,N,P,Q,NamedDimsArray{L,T,N,S}}) where {L,T,N,S,P,Q} =
-    NamedDimsArray{L}(x.parent.data)
+canonise(x::NamedDimsArray{L,T,2,<:Diagonal}) where {L,T} =
+    L[1] === L[2] ? NamedDimsArray{(L[1],)}(grandparent(x)) : x
 
 # transpose / Transpose of a matrix (of numbers, to avoid recursion)
 canonise(x::NamedDimsArray{L,T,2,<:Transpose{T,<:AbstractArray{T,2}}}) where {L,T<:Number} =
-    NamedDimsArray{(L[2],L[1])}(x.data.parent)
+    NamedDimsArray{(L[2],L[1])}(grandparent(x))
 
 canonise(x::Transpose{T,<:NamedDimsArray{L,T,2}}) where {L,T<:Number} =
-    NamedDimsArray{(L[2],L[1])}(x.parent.data)
+    NamedDimsArray{(L[2],L[1])}(grandparent(x))
 
 # transpose / Transpose of a vector: drop :_ dimension
 canonise(x::NamedDimsArray{L,T,2,<:Transpose{T,<:AbstractArray{T,1}}}) where {L,T<:Number} =
-    L[1] === :_ ? NamedDimsArray{(L[2],)}(x.data.parent) : x
+    L[1] === :_ ? NamedDimsArray{(L[2],)}(grandparent(x)) : x
 
-canonise(x::Transpose{T,<:NamedDimsArray{L,T,1}}) where {L,T<:Number} = x.parent
-
-# you could add Transpose of an array of Transposes, but maybe don't.
+canonise(x::Transpose{T,<:NamedDimsArray{L,T,1}}) where {L,T<:Number} = parent(x)
 
 # same for Adjoint but only on reals
 canonise(x::NamedDimsArray{L,T,2,<:Adjoint{T,<:AbstractArray{T,2}}}) where {L,T<:Real} =
-    NamedDimsArray{(L[2],L[1])}(x.data.parent)
+    NamedDimsArray{(L[2],L[1])}(xgrandparent(x))
 
 canonise(x::Adjoint{T,<:NamedDimsArray{L,T,2}}) where {L,T<:Real} =
-    NamedDimsArray{(L[2],L[1])}(x.parent.data)
+    NamedDimsArray{(L[2],L[1])}(grandparent(x))
 
 canonise(x::NamedDimsArray{L,T,2,<:Adjoint{T,<:AbstractArray{T,1}}}) where {L,T<:Real} =
-    L[1] === :_ ? NamedDimsArray{(L[2],)}(x.data.parent) : x
+    L[1] === :_ ? NamedDimsArray{(L[2],)}(grandparent(x)) : x
 
-canonise(x::Adjoint{T,<:NamedDimsArray{L,T,1}}) where {L,T<:Real} = x.parent
+canonise(x::Adjoint{T,<:NamedDimsArray{L,T,1}}) where {L,T<:Real} = parent(x)
+
+# PermutedDimsArray
+canonise(x::PermutedDimsArray{T,N,P,Q,<:NamedDimsArray{L}}) where {L,T,N,P,Q} =
+    NamedDimsArray{L}(grandparent(x))
+
+canonise(x::NamedDimsArray{L,T,N,<:PermutedDimsArray{T,N,P,Q}}) where {L,T,N,P,Q} =
+    error() # permute the names, return grandparent(x)
 
 ####################
