@@ -4,13 +4,12 @@
     rename(A, names) = NamedDimsArray(nameless(A), names)
 
 Discards `A`'s dimension names & replaces with the given ones.
-Does this even need its own function?
 
     rename(A, :i => :j)
     rename(A, :i => :j, :k => :l)
     A′, B′ = rename(A, B, :i => :j)
 
-Works a bit like `Base.replace` on index names. (Could even be made a method of that.)
+Works a bit like `Base.replace` on index names.
 If there are several rules, they are applied in sequence. (It's fast with up to two!)
 Given several arrays `A, B`, it makes the same replacements for all, returning a tuple.
 """

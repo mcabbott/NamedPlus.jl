@@ -1,21 +1,5 @@
-#################### UNWRAPPING ####################
-## https://github.com/invenia/NamedDims.jl/issues/65
 
-"""
-    unname(A::NamedDimsArray, names) -> AbstractArray
-
-Returns the parent array if the given names match those of `A`,
-otherwise a `transpose` or `PermutedDimsArray` view of the parent data.
-Like `parent(permutedims(A, names))` but making a view not a copy.
-
-This is now simply `parent(align(A, names))`,
-and thus it allows `names` longer than `ndims(A)`, which will insert trivial dimensions.
-"""
-NamedDims.unname(A::NamedUnion, names::NTuple{N, Symbol}) where {N} =
-    parent(align(A, names))
-
-
-#################### align ####################
+#################### LAZY ALIGN ####################
 
 """
     align(A, names)
@@ -192,11 +176,18 @@ canonise(x::NamedDimsArray{L,T,2,<:Adjoint{T,<:AbstractArray{T,1}}}) where {L,T<
 
 canonise(x::Adjoint{T,<:NamedDimsArray{L,T,1}}) where {L,T<:Real} = parent(x)
 
-# PermutedDimsArray
+# *mutedDimsArray
 canonise(x::PermutedDimsArray{T,N,P,Q,<:NamedDimsArray{L}}) where {L,T,N,P,Q} =
     NamedDimsArray{L}(grandparent(x))
 
 canonise(x::NamedDimsArray{L,T,N,<:PermutedDimsArray{T,N,P,Q}}) where {L,T,N,P,Q} =
-    error() # permute the names, return grandparent(x)
+    NamedDimsArray{ntuple(i->L[Q[i]],N)}(grandparent(x))
+
+canonise(x::TransmutedDimsArray{T,N,P,Q,<:NamedDimsArray{L}}) where {L,T,N,P,Q} =
+    NamedDimsArray{L}(grandparent(x))
+
+canonise(x::NamedDimsArray{L,T,N,<:TransmutedDimsArray{T,N,P,Q}}) where {L,T,N,P,Q} =
+    NamedDimsArray{ntuple(i->L[Q[i]], ndims(grandparent(x)))}(grandparent(x))
+
 
 ####################

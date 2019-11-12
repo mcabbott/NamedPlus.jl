@@ -226,6 +226,14 @@ using LinearAlgebra, TensorOperations
     @test getnames(p) == (:k, :i, :j)
     @test t === canonise(p)
 
+    s = rand(Int8, 1,2,3)
+    tns = TransmutedDimsArray(NamedDimsArray(s,(:a, :b, :c)), (2,3,0,1))
+    @test canonise(tns) == s
+    @test names(canonise(tns)) == (:a, :b, :c) # easy!
+    nts = NamedDimsArray(TransmutedDimsArray(s, (2,3,0,1)), (:b, :c, :_, :a))
+    @test canonise(nts) == s
+    @test names(canonise(nts)) == (:a, :b, :c) # permutes names
+
 end
 @testset "tensor macro" begin
 

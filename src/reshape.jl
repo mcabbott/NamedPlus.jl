@@ -10,7 +10,7 @@ This replaces two dimensions `i, j` with a combined one `iᵡj`.
 If the dimensions are adjecent and in the correct order
 (and `A` is not a lazy `Transpose` etc) then this will be done by reshaping.
 But if the dimensions aren't adjacent, or are in the wrong order,
-then it will copy `A`.
+then it needs to call `permutedims` first, which will copy `A`.
 """
 Base.join(A::NamedUnion, i::Symbol, j::Symbol) = join(A, (i,j) => _join(i,j))
 Base.join(A::NamedUnion, ij::Tuple) = join(A, ij...)
@@ -104,6 +104,9 @@ function Base.split(A::NamedUnion, pair::Pair{Symbol,<:Tuple}, sizes::Tuple)
     end
     NamedDimsArray{nm}(reshape(nameless(A), sz))
 end
+
+Base.split(A::NamedUnion, s::Symbol, sizes::Union{Tuple, NamedUnion}) =
+    split(A, s => _split(s), sizes)
 
 Base.split(A::NamedUnion, pair::Pair{Symbol,<:Tuple}, B::NamedUnion) =
     split(A, pair, dim(B, pair.second))
