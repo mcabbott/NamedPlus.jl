@@ -1,5 +1,7 @@
 # NamedPlus.jl
 
+[![Build Status](https://travis-ci.org/mcabbott/NamedPlus.jl.svg?branch=master)](https://travis-ci.org/mcabbott/NamedPlus.jl)
+
 This package exists to experiment with the arrays provided by 
 [NamedDims.jl](https://github.com/invenia/NamedDims.jl). 
 
