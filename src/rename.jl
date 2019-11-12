@@ -43,8 +43,6 @@ end
 
 #################### PRIMES ####################
 
-export prime
-
 """
     prime(x, d::Int)
     prime(x, first) = prime(x, 1)

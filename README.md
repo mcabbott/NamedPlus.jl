@@ -27,8 +27,8 @@ ones(i=1, j=4) .+ rand(Int8, i=3)        # base piracy, but convenient.
 Re-ordering of dimensions:
 ```julia
 align(m, (:j, :k, :i))                   # lazy generalised permutedims
-@named q{i,j,k} = m .+ t                 # used for auto-aligned broadcasting
-align(m, t) .+ t
+@named q{i,j,k} = m .+ t                 # used for auto-permuted broadcasting
+align(m, t) .+ t                         # or to manually fix things up
 
 using TensorOperations                   # named inputs re-arranged via Strided
 @named @tensor p[j,i′] := m[i,j] * z[i,i′]

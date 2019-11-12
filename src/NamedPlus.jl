@@ -13,6 +13,7 @@ include("int.jl")
 export NamedInt
 
 include("macro.jl")
+export @named
 
 include("permute.jl")
 export canonise, align
@@ -23,6 +24,7 @@ export diagonal, outer
 include("reshape.jl")
 
 include("rename.jl")
+export prime
 
 # include("plots.jl")
 

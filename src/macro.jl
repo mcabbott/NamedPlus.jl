@@ -1,8 +1,6 @@
 
 #################### MEGA-MACRO ####################
 
-export @named
-
 using MacroTools
 
 """
