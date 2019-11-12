@@ -1,4 +1,5 @@
 using Test, NamedPlus
+using NamedDims: names
 
 v = NamedDimsArray(rand(3), :j)
 m = NamedDimsArray(rand(2,3), (:i,:j))
@@ -12,16 +13,17 @@ z = NamedDimsArray(rand(26), :z)
         m2{i,j} = rand(2,3)
         t2{i,j,k} = rand(2,3,4)
     end
-    @test Base.names(v2) == (:j,)
-    @test Base.names(t2,2) == :j
+    @test names(v2) == (:j,)
+    @test_skip names(t2,2) == :j
 
-end
-@testset "similar" begin
+    # comprehensions
+    @test (@named [i^2 for i in 1:3]) isa NamedDimsArray
+    @test names(@named [i/j for i in 1:3, j in 1:4]) == (:i, :j)
 
-    @test size(similar(t, :k)) == (4,)
-    @test eltype(similar(t, Int, :k)) == Int
-    @test size(similar(m, z, :i, :z)) == (2,26)
-    @test names(similar(v, m, t, (:i, :k))) == (:i, :k)
+    @test names(@named [x^2 for x in 1:2:10]) == (:x,)
+    @test names(@named [x^i for x in 1:2:10, i in 1:3]) == (:x, :i)
+    @test_skip ranges(@named [x^2 for x in 1:2:10]) == (1:2:10,)
+    @test_skip ranges(@named [x^i for x in 1:2:10, i in 1:3]) == (1:2:10, 1:3)
 
 end
 @testset "unname with names" begin
@@ -35,7 +37,7 @@ end
     @test names(permutenames(v, (:i, :j, :k))) == (:_, :j, :_)
 
 end
-
+#=
 # broken without TransmuteDims master?
 @testset "broadcasting by name" begin
 
@@ -47,7 +49,7 @@ end
     @test z == t .+ m ./ v'
 
 end
-
+=#
 @testset "rename & prime" begin
 
     @test prime(:z) == :z′
@@ -55,6 +57,8 @@ end
     @test names(prime(m, 2)) == (:i, :j′)
 
     @test names(rename(m, :j => :k)) == (:i, :k)
+    @test names(rename(m, :j => :k, :i => :j)) == (:j, :k)
+    @test names(rename(m, :j => :k, :k => :l)) == (:i, :l)
     @test names(rename(m, (:a, :b))) == (:a, :b)
 
     using NamedPlus: _prime
@@ -67,18 +71,14 @@ end
 
     @test names(join(t, (:i,:j) => :ij)) == (:ij, :k)
     t1 = join(t, :i,:k)
-    @test names(t1) == (:j, Symbol("i⊗k"))
+    @test names(t1) == (:j, :i_k)
 
-    @test size(split(m, :i)) == (2, 1, 3)
-    @test size(split(m, :i => (:i1, :i2))) == (2, 1, 3)
     @test size(split(m, :i => (:i1, :i2), (1,2))) == (1, 2, 3)
-    @test size(split(m, :i)) == (2, 1, 3)
 
     @test t == split(join(t, (:i,:j) => :ij), :ij => (:i,:j), (2,3))
 
-    t2 = split(t1, (:i,:k), (2,4));
+    t2 = split(t1, :i_k => (:i,:k), (2,4));
     @test names(t2) == (:j, :i, :k)
-    t2 = split(t1, (:i,:k), (2,4))
     @test size(t2) == (3, 2, 4)
 
     t2[1,1,1] = 99
@@ -91,15 +91,65 @@ end
     @test (@inferred (() -> _split(_join(:i, :j)))() ;true)
 
 end
+@testset "named int" begin
 
-using LinearAlgebra, OMEinsum, TensorOperations
+    ni, nj = size(m)
+    @test ni isa NamedInt
+
+    @test names(zeros(ni, nj)) == (:i, :j)
+    @test names(ones(ni, nj)) == (:i, :j)
+    @test names(rand(ni, nj)) == (:i, :j)
+    @test names(randn(ni, nj)) == (:i, :j)
+
+    @test names(zeros(Int, ni, nj)) == (:i, :j)
+    @test names(ones(Float32, ni, nj)) == (:i, :j)
+    @test names(rand(Int8, ni, nj)) == (:i, :j)
+    @test names(randn(Float64, ni, nj)) == (:i, :j)
+
+    @test names(1:ni) == (:i,)
+    @test_skip names([x^i for x in 1:nj, i in 1:ni]) == (:j, :i) # need my PR
+
+end
+@testset "base piracy" begin
+
+    # Base behaviour
+    @test ones() isa Array{Float64, 0}
+    @test zeros() isa Array{Float64, 0}
+    @test fill(3.14) isa Array{Float64, 0}
+    @test ones(3) isa Array{Float64, 1}
+    @test zeros(3,4) isa Array{Float64, 2}
+    @test fill(3.14, 3,4,5) isa Array{Float64, 3}
+
+    @test rand() isa Float64
+    @test randn() isa Float64
+    @test rand(Float64) isa Float64
+    @test randn(Float64) isa Float64
+    @test rand(1,2) isa Array{Float64, 2}
+    @test randn(1,2) isa Array{Float64, 2}
+    @test rand(Float64,1,2) isa Array{Float64, 2}
+    @test randn(Float64,1,2) isa Array{Float64, 2}
+
+    # Overloads
+    @test names(ones(i=3)) == (:i,)
+    @test names(ones(Int, i=3)) == (:i,)
+    @test names(zeros(i=3, j=4)) == (:i,:j)
+    @test names(zeros(Int, i=3, j=4)) == (:i,:j)
+    @test names(fill(3.14, i=3, j=4, k=5)) == (:i,:j,:k)
+
+    @test names(rand(Float64, i=3)) == (:i,)
+    @test names(randn(Float64, i=3, j=4)) == (:i,:j)
+
+    @test_broken eltype(randn(Int8, i=3)) == Int8
+
+end
+
+using LinearAlgebra, TensorOperations
 
 @testset "wrapper types" begin
 
     d = Diagonal(v)
-    @test names(d) == (:j, :j)
+    @test getnames(d) == (:j, :j)
     @test typeof(nameless(d)) == Diagonal{Float64,Array{Float64,1}}
-    @test d[j=2] === v[2] # indexing of NamedUnion
 
     @test canonise(d) === v
 
@@ -112,36 +162,10 @@ using LinearAlgebra, OMEinsum, TensorOperations
 
     p = PermutedDimsArray(t, (3,1,2));
     @test p == PermutedDimsArray(t, (:k,:i,:j))
-    @test Base.names(p) == (:k, :i, :j)
-    @test summary(p) == "k≤4 × i≤2 × j≤3 PermutedDimsArray{Float64,3,(3, 1, 2),(2, 3, 1),NamedDimsArray{(:i, :j, :k),Float64,3,Array{Float64,3}}}"
+    @test getnames(p) == (:k, :i, :j)
     @test t === canonise(p)
 
-    @test p[i=1, k=3, j=2] == t[1,2,3]
-    @test p[i=1, k=3] == t[1,:,3]
-    @test p[i=1] == transpose(t[1,:,:]) # is this OK?
-
 end
-@testset "SVD" begin
-
-    for f in (identity, transpose, permutedims)
-        s = svd(f(m))
-        c = contract(s.U, s.S, s.V; dims=:svd)
-        @test names(c) == names(f(m))
-        @test f(m) ≈ c
-    end
-
-end
-#= broken
-@testset "generalised contraction" begin
-
-    *ⱼ(x...) = NamedPlus.Contract{(:j,)}(x...)
-
-    @test names(t *ⱼ m) == (:i,:k)
-    @test names(t *ⱼ diagonal(v)) == (:i,:k)
-    @test names(t *ⱼ diagonal(v, (:j, :j′))) == (:i,:k,:j′)
-
-end
-=#
 @testset "tensor macro" begin
 
     for f in (identity, transpose, permutedims)
@@ -160,73 +184,12 @@ end
 
 end
 
-using OffsetArrays
+@testset "test from NamedDims" begin
 
-@testset "ranges" begin
-
-    R = RangeWrap(rand(1:99, 3,4), (['a', 'b', 'c'], 10:10:40))
-    N = Wrap(rand(1:99, 3,4), obs = ['a', 'b', 'c'], iter = 10:10:40) # combined constructor
-
-    # ===== access
-    @test R('c', 40) == R[3, 4]
-    @test R('b') == R[2,:]
-
-    @test N(obs='a', iter=40) == N[obs=1, iter=4]
-    @test N(obs='a') == N('a') == N[1,:]
-
-    # ===== recursion
-    @test getnames(Transpose(N)) == (:iter, :obs)
-    @test getranges(Transpose(N)) == (10:10:40, ['a', 'b', 'c'])
-
-    @test nameless(Transpose(N)) isa Transpose{Int, <:RangeWrap}
-
-    N2 = NamedDimsArray(nameless(N), getnames(N))
-    @test N2 isa NamedDimsArray{(:obs, :iter),Int,2,<:RangeWrap}
-    if VERSION >= v"1.3-rc2"
-        @test N2(obs='a', iter=40) == N2[obs=1, iter=4]
-    end
-
-    # ===== selectors
-    @test N(iter=Near(12.5)) == N[:,1]
-    @test_broken N(iter=Between(7,23)) == N[:,1:2]
-
-    @test R('a', Index[2]) == R[1,2]
-
-    # ===== mutation
-    V = Wrap([3,5,7,11], μ=10:10:40)
-    @test ranges(push!(V, 13)) == 10:10:50
-
-    # ===== offset
-    o = OffsetArray(rand(1:99, 5), -2:2)
-    w = Wrap(o, i='a':'e')
-    @test w[i=-2] == w('a')
+    # Check that my piracy doesn't break anything
+    folder = dirname(pathof(NamedDims))
+    file = normpath(joinpath(folder, "..", "test", "runtests.jl"))
+    include(file)
 
 end
 
-@testset "comprehensions" begin
-
-    @test names(@named [x^2 for x in 1:2]) == (:x,)
-    @test names(@named [x/y for x in 1:2, y in 1:3]) == (:x,:y)
-
-    @test getranges(@named [x^2 for x in 1:2:10]) == (1:2:10,)
-
-end
-
-@testset "non-piracy" begin
-    for r in (Base.OneTo(5), 2:5)
-        for x in -2:7
-
-            @test NamedPlus.findfirst(==(x), r) == findfirst(==(x), collect(r))
-            @test NamedPlus.findfirst(isequal(x), r) == findfirst(isequal(x), collect(r))
-
-            for op in (isequal, Base.:(==), Base.:<, Base.:<=, Base.:>, Base.:>=)
-
-                @test NamedPlus.findall(op(x), r) == findall(op(x), collect(r))
-                @test NamedPlus.findall(op(x), r) isa AbstractRange
-                # T = typeof(NamedPlus.findall(op(x), r))
-                # T <: AbstractRange || @info "$op($x) $r  -> $T"
-            end
-
-        end
-    end
-end

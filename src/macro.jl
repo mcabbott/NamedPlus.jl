@@ -32,7 +32,7 @@ its labels permuted (lazily) to match `i,j,y,x` before broadcasting.
     @named [g(x) for y in 10:2:20]   # Wrap([g(x) for ...], y=10:2:20)
 
 Acting on comprehensions, it will use the variable name as a dimension name.
-If the range is not simply `1:N` then it will make a `RangeWrap{...,NamedDimsArray{(:y,),...}}`.
+If the range is not simply `1:N` then it will make a `RangeArray{...,NamedDimsArray{(:y,),...}}`.
 
     @named *′ = contract{k}      # *′(xs...) = Contract{(:k,)}(xs...)
 
@@ -116,7 +116,9 @@ function ex_comprehension(ex, val, ind, ran, mod) # [val_ for ind_ in ran_]
     out = :( NamedDims.NamedDimsArray{($name,)}($ex) )
 
     if (@capture(ran, start_:stop_) && start != 1) || @capture(ran, start_:step_:stop_)
-        return :( RangeWrap($out, ($ran,)) )
+        return quote
+            isdefined($mod, :AxisRanges) ? RangeArray($out, ($ran,)) : $out
+        end
     else
         return out
     end
@@ -129,7 +131,9 @@ function ex_comprehension(ex, val, ind1, ran1, ind2, ran2, mod)
 
     if (@capture(ran1, start_:stop_) && start != 1) || @capture(ran1, start_:step_:stop_) ||
         (@capture(ran2, start_:stop_) && start != 1) || @capture(ran2, start_:step_:stop_)
-        return :( RangeWrap($out, ($ran1,$ran2)) )
+        return quote
+            isdefined($mod, :AxisRanges) ? RangeArray($out, ($ran1,$ran2)) : $out
+        end
     else
         return out
     end
@@ -182,7 +186,8 @@ function ex_tensor(ex, left=nothing)
             Aname, Aperm = gensym(A), gensym(:perm)
             inds = map(QuoteNode, ijk)
             append!(out.args, (quote
-                if $A isa NamedPlus.NamedUnion
+                # if $A isa NamedPlus.NamedUnion
+                if $A isa NamedDims.NamedDimsArray
                     $Aperm = dim($A, ($(inds...),))
                     $Aname = Base.permutedims(TensorOperations.Strided.maybestrided(NamedPlus.nameless($A)), $Aperm)
                 else

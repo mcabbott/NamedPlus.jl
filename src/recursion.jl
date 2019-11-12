@@ -1,8 +1,25 @@
-#################### RECURSIVE UNWRAPPING ####################
-
-export True, hasnames, getnames
+#################### TYPES ####################
 
 using LinearAlgebra
+
+wraps(AT) = [
+    :( Diagonal{T,$AT} ),
+    :( Transpose{T,$AT} ),
+    # :( Adjoint{<:Any,$AT} ),
+    :( PermutedDimsArray{T,<:Any,<:Any,<:Any,$AT} ),
+
+    # :( TransmutedDimsArray{T,<:Any,<:Any,<:Any,$AT} ),
+
+    # :( Stacked{T,<:Any,$AT} ),
+    # :( Stacked{T,<:Any,<:AbstractArray{$AT}} ),
+]
+
+@eval NamedUnion{T} = Union{NamedDimsArray{<:Any,T}, $(wraps(:(<:NamedDimsArray))...),}
+
+#################### RECURSIVE UNWRAPPING ####################
+
+using LinearAlgebra
+using TransmuteDims
 
 names_doc = """
     names(A::NamedDimsArray) -> Tuple
@@ -20,9 +37,9 @@ For any wrapper type which changes the order / number of dimensions,
 you will need to define `NamedPlus.outmap(x, names) = outernames`.
 """
 
-@doc names_doc
-Base.names(x::NamedUnion) = getnames(x)
-Base.names(x::NamedUnion, d::Int) = getnames(x, d)
+# @doc names_doc
+# Base.names(x::NamedUnion) = getnames(x)
+# Base.names(x::NamedUnion, d::Int) = getnames(x, d)
 
 @doc names_doc
 hasnames(x::NamedDimsArray) = true

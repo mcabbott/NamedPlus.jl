@@ -1,89 +1,27 @@
 module NamedPlus
 
 using NamedDims
-export NamedDims, NamedDimsArray, dim, unname
+export NamedDims, NamedDimsArray, dim, unname, rename
 
-# using JuliennedArrays
-# export Slices, Align
+# using AxisRanges # perhaps they can co-operate for now
+# export wrapdims, RangeArray, ranges
 
-using LinearAlgebra
+include("recursion.jl")
+export getnames, nameless
 
-using TransmuteDims
-
-export NamedUnion, thenames, nameless # this package's functions
-
-#################### CODE ####################
-
-# Defined here just to include in union types
-mutable struct RangeWrap{T,N,AT,RT,MT} <: AbstractArray{T,N}
-    data::AT
-    ranges::RT
-    meta::MT
-end
-
-struct Stacked{T,N,AT} <: AbstractArray{T,N}
-    slices::AT
-end
-
-include("wrap.jl") # must be first, defn NamedUnion
-
-include("recursion.jl") # getnames, nameless
-
-include("ranges.jl") # all things RangeWrap
-
-include("view.jl") # permutenames, split/join
-
-# include("julienne.jl")
-include("eachslice.jl")
-include("stack.jl")
+include("int.jl")
+export NamedInt
 
 include("macro.jl")
 
-include("maths.jl") # contract, svd
+include("permute.jl")
 
-#################### BASE.SHOW ####################
+include("create.jl")
 
-function Base.summary(io::IO, x::PlusUnion)
-    if hasnames(x)
-        if ndims(x)==1
-            print(io, length(x),"-element [",summary_pair(getnames(x)[1],axes(x,1)),"] ",typeof(x))
-        else
-            list = [summary_pair(na,ax) for (na,ax) in zip(getnames(x), axes(x))]
-            print(io, join(list," × "), " ",typeof(x))
-        end
-        names = getnames(x)
-    else
-        if ndims(x)==1
-            print(io, length(x),"-element ",typeof(x))
-        else
-            print(io, join(size(x)," × "), " ",typeof(x))
-        end
-        names = Tuple(1:ndims(x))
-    end
+include("reshape.jl")
 
-    if hasranges(x)
-        ranges = getranges(x)
-        println(io, "\nwith ranges:")
-        for d in 1:ndims(x)
-            println(io, "    ", names[d], " ∈ ", ranges[d])
-        end
-    end
+include("rename.jl")
 
-    if getmeta(x) !== nothing
-        println(io, "and meta:")
-        println(io, "    ", repr(getmeta(x)))
-    end
-
-    if hasranges(x)
-        print(io, "and data")
-    end
-end
-
-summary_pair(name::Symbol, axis) =
-    axis===Base.OneTo(1) ? string(name,"=1") :
-    first(axis)==1 ? string(name,"≤",length(axis)) :
-    string(name,"∈",first(axis),":",maximum(axis))
-
-#################### THE END ####################
+# include("plots.jl")
 
 end # module

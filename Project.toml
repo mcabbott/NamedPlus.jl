@@ -1,17 +1,15 @@
 name = "NamedPlus"
 uuid = "c949b730-32ca-5034-8981-9fadbaa9e517"
 authors = ["Michael Abbott"]
-version = "0.0.1"
+version = "0.0.2"
 
 [deps]
 EllipsisNotation = "da5c29d0-fa7d-589e-88eb-ea29b0a81949"
-JuliennedArrays = "5cadff95-7770-533d-a838-a1bf817ee6e0"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 NamedDims = "356022a1-0364-5f58-8944-0da4b18d706f"
 OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
-Requires = "ae029012-a4dd-5104-9daa-d747884805df"
-Strided = "5e0ebb24-38b0-5f93-81fe-25c709ecae67"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 TransmuteDims = "24ddb15e-299a-5cc3-8414-dbddc482d9ca"
 TupleTools = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
 
@@ -19,9 +17,12 @@ TupleTools = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
 julia = "1"
 
 [extras]
-OMEinsum = "ebe7aa44-baf0-506c-a96f-8464559b3922"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+Strided = "5e0ebb24-38b0-5f93-81fe-25c709ecae67"
 TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [targets]
-test = ["Test", "OMEinsum", "TensorOperations"]
+test = ["Test", "TensorOperations", "SparseArrays", "Tracker", "Statistics"]
