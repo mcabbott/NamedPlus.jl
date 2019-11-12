@@ -8,19 +8,18 @@ Returns the parent array if the given names match those of `A`,
 otherwise a `transpose` or `PermutedDimsArray` view of the parent data.
 Like `parent(permutedims(A, names))` but making a view not a copy.
 
-This is now simply `parent(permutenames(A, names))`,
+This is now simply `parent(align(A, names))`,
 and thus it allows `names` longer than `ndims(A)`, which will insert trivial dimensions.
 """
 NamedDims.unname(A::NamedUnion, names::NTuple{N, Symbol}) where {N} =
-    parent(permutenames(A, names))
+    parent(align(A, names))
 
 
-#################### PERMUTENAMES ####################
-
-export permutenames, permutenames2
+#################### align ####################
 
 """
-    permutenames(A, names)
+    align(A, names)
+    align(A, B)
 
 This is a bit like `permutedims`, but does not copy the data to a new array in the given order,
 and instead wraps it in `Transpose` or `PemutedDimsArray` as nedded.
@@ -28,10 +27,14 @@ and instead wraps it in `Transpose` or `PemutedDimsArray` as nedded.
 If `A` has fewer dimensions than `names`, then trivial dimensions are inserted
 using a `TransmutedDimsArray`.
 
+Instead of providing names, you can also provide another array whose named should be used.
+
 Note that `canonise(A)` unwraps `Diagonal{...,Vector}` and `Transpose{...,Vector}`
 to have just one index.
 """
-function permutenames(A::NamedUnion, target::Tuple{Vararg{Symbol}}; lazy::Bool=true)
+align(A::NamedUnion, B::NamedDimsArray{L}) where {L} = align(A, L)
+
+function align(A::NamedUnion, target::Tuple{Vararg{Symbol}}; lazy::Bool=true)
     B = canonise(A)
     T = eltype(A)
 
@@ -54,7 +57,6 @@ function permutenames(A::NamedUnion, target::Tuple{Vararg{Symbol}}; lazy::Bool=t
         return NamedDimsArray{target}(C)
     end
 end
-
 
 
 #################### PERMUTE ####################
@@ -105,8 +107,6 @@ function TransmuteDims.Transmute{perm}(data::A) where {A<:NamedUnion, perm}
 end
 
 #################### CANONICALISE ####################
-
-export canonise
 
 """
     A′ = canonise(A::NamedDimsArray)

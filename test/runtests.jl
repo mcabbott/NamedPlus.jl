@@ -33,8 +33,8 @@ end
     @test unname(t, (:i,:j,:k)) === parent(t)
     @test unname(t, (:i,:k,:j)) === PermutedDimsArray(parent(t), (1,3,2))
 
-    @test names(permutenames(m, (:i, :k, :j))) == (:i, :_, :j)
-    @test names(permutenames(v, (:i, :j, :k))) == (:_, :j, :_)
+    @test names(align(m, (:i, :k, :j))) == (:i, :_, :j)
+    @test names(align(v, (:i, :j, :k))) == (:_, :j, :_)
 
 end
 #=

@@ -15,6 +15,7 @@ export NamedInt
 include("macro.jl")
 
 include("permute.jl")
+export canonise, align
 
 include("create.jl")
 export diagonal, outer
