@@ -16,13 +16,16 @@ z = NamedDimsArray(rand(26), :z)
     @test names(v2) == (:j,)
     @test_skip names(t2,2) == :j
 
+    # comprehensions
     @test (@named [i^2 for i in 1:3]) isa NamedDimsArray
     @test names(@named [i/j for i in 1:3, j in 1:4]) == (:i, :j)
 
-    @test_skip ranges(@named [i^2 for i in 1:2:5]) == (1:2:5,)
+    @test names(@named [x^2 for x in 1:2:10]) == (:x,)
+    @test names(@named [x^i for x in 1:2:10, i in 1:3]) == (:x, :i)
+    @test_skip ranges(@named [x^2 for x in 1:2:10]) == (1:2:10,)
+    @test_skip ranges(@named [x^i for x in 1:2:10, i in 1:3]) == (1:2:10, 1:3)
 
 end
-
 @testset "unname with names" begin
 
     @test unname(m, (:j, :i)) === transpose(parent(m))
@@ -34,7 +37,7 @@ end
     @test names(permutenames(v, (:i, :j, :k))) == (:_, :j, :_)
 
 end
-
+#=
 # broken without TransmuteDims master?
 @testset "broadcasting by name" begin
 
@@ -46,7 +49,7 @@ end
     @test z == t .+ m ./ v'
 
 end
-
+=#
 @testset "rename & prime" begin
 
     @test prime(:z) == :z′
@@ -54,6 +57,8 @@ end
     @test names(prime(m, 2)) == (:i, :j′)
 
     @test names(rename(m, :j => :k)) == (:i, :k)
+    @test names(rename(m, :j => :k, :i => :j)) == (:j, :k)
+    @test names(rename(m, :j => :k, :k => :l)) == (:i, :l)
     @test names(rename(m, (:a, :b))) == (:a, :b)
 
     using NamedPlus: _prime
@@ -86,6 +91,56 @@ end
     @test (@inferred (() -> _split(_join(:i, :j)))() ;true)
 
 end
+@testset "named int" begin
+
+    ni, nj = size(m)
+    @test ni isa NamedInt
+
+    @test names(zeros(ni, nj)) == (:i, :j)
+    @test names(ones(ni, nj)) == (:i, :j)
+    @test names(rand(ni, nj)) == (:i, :j)
+    @test names(randn(ni, nj)) == (:i, :j)
+
+    @test names(zeros(Int, ni, nj)) == (:i, :j)
+    @test names(ones(Float32, ni, nj)) == (:i, :j)
+    @test names(rand(Int8, ni, nj)) == (:i, :j)
+    @test names(randn(Float64, ni, nj)) == (:i, :j)
+
+    @test names(1:ni) == (:i,)
+    @test names([x^i for x in 1:nj, i in 1:ni]) == (:j, :i)
+
+end
+@testset "base piracy" begin
+
+    # Base behaviour
+    @test ones() isa Array{Float64, 0}
+    @test zeros() isa Array{Float64, 0}
+    @test fill(3.14) isa Array{Float64, 0}
+    @test ones(3) isa Array{Float64, 1}
+    @test zeros(3,4) isa Array{Float64, 2}
+    @test fill(3.14, 3,4,5) isa Array{Float64, 3}
+
+    @test rand() isa Float64
+    @test randn() isa Float64
+    @test rand(Float64) isa Float64
+    @test randn(Float64) isa Float64
+    @test rand(1,2) isa Array{Float64, 2}
+    @test randn(1,2) isa Array{Float64, 2}
+    @test rand(Float64,1,2) isa Array{Float64, 2}
+    @test randn(Float64,1,2) isa Array{Float64, 2}
+
+    # Overloads
+    @test names(ones(i=3)) == (:i,)
+    @test names(ones(Int, i=3)) == (:i,)
+    @test names(zeros(i=3, j=4)) == (:i,:j)
+    @test names(zeros(Int, i=3, j=4)) == (:i,:j)
+    @test names(fill(3.14, i=3, j=4, k=5)) == (:i,:j,:k)
+
+    @test names(rand(Float64, i=3)) == (:i,)
+    @test names(randn(Float64, i=3, j=4)) == (:i,:j)
+
+end
+
 
 using LinearAlgebra, TensorOperations
 
@@ -127,3 +182,13 @@ end
     end
 
 end
+
+@testset "test from NamedDims" begin
+
+    # Check that my piracy doesn't break anything
+    folder = dirname(pathof(NamedDims))
+    file = normpath(joinpath(folder, "..", "test", "runtests.jl"))
+    include(file)
+
+end
+

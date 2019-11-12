@@ -116,7 +116,9 @@ function ex_comprehension(ex, val, ind, ran, mod) # [val_ for ind_ in ran_]
     out = :( NamedDims.NamedDimsArray{($name,)}($ex) )
 
     if (@capture(ran, start_:stop_) && start != 1) || @capture(ran, start_:step_:stop_)
-        return :( RangeArray($out, ($ran,)) )
+        return quote
+            isdefined($mod, :AxisRanges) ? RangeArray($out, ($ran,)) : $out
+        end
     else
         return out
     end
@@ -129,7 +131,9 @@ function ex_comprehension(ex, val, ind1, ran1, ind2, ran2, mod)
 
     if (@capture(ran1, start_:stop_) && start != 1) || @capture(ran1, start_:step_:stop_) ||
         (@capture(ran2, start_:stop_) && start != 1) || @capture(ran2, start_:step_:stop_)
-        return :( RangeArray($out, ($ran1,$ran2)) )
+        return quote
+            isdefined($mod, :AxisRanges) ? RangeArray($out, ($ran1,$ran2)) : $out
+        end
     else
         return out
     end

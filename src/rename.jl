@@ -1,7 +1,5 @@
 #################### RENAME ####################
 
-export rename
-
 """
     rename(A, names) = NamedDimsArray(nameless(A), names)
 
@@ -16,18 +14,16 @@ Works a bit like `Base.replace` on index names. (Could even be made a method of 
 If there are several rules, they are applied in sequence. (It's fast with up to two!)
 Given several arrays `A, B`, it makes the same replacements for all, returning a tuple.
 """
-rename(nda::NamedUnion, names::Tuple{Vararg{Symbol}}) = NamedDimsArray(nameless(nda), names)
-
-function rename(nda::NamedUnion, pair::Pair)
+function NamedDims.rename(nda::NamedDimsArray, pair::Pair)
     new = _rename(getnames(nda), pair)
     NamedDimsArray(nameless(nda), new)
 end
-function rename(nda::NamedUnion, pair::Pair, pair2::Pair, rest::Pair...)
+function NamedDims.rename(nda::NamedDimsArray, pair::Pair, pair2::Pair, rest::Pair...)
     new1 = _rename(getnames(nda), pair)
     new2 = _rename(new1, pair2)
     rename(NamedDimsArray(nameless(nda), new2), rest...)
 end
-rename(nda::NamedUnion) = nda
+NamedDims.rename(nda::NamedDimsArray) = nda
 
 _rename(old, pair) = map(s -> s===pair.first ? pair.second : s, old) |> NamedDims.compile_time_return_hack
 # @btime NamedPlus._rename((:a, :b), :b => :c) # 1.420 ns (0 allocations: 0 bytes)
@@ -40,9 +36,9 @@ const ndv = NamedDimsArray{(:a,)}([1,2,3])
 =#
 
 for n=2:10
-    args = [:( $(Symbol("nda_",i))::NamedUnion ) for i=1:n ]
+    args = [:( $(Symbol("nda_",i))::NamedDimsArray ) for i=1:n ]
     vals = [:( rename($(Symbol("nda_",i)), pairs...) ) for i=1:n ]
-    @eval rename($(args...), pairs::Pair...) = ($(vals...),)
+    @eval NamedDims.rename($(args...), pairs::Pair...) = ($(vals...),)
 end
 
 #################### PRIMES ####################
