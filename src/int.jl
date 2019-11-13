@@ -46,15 +46,15 @@ Base.show(io::IO, ::MIME"text/plain", x::NamedInt{L}) where {L} =
 const ᵅ = NamedInt(1, :_)
 Base.:*(x::Integer, y::NamedInt{L}) where {L} = NamedInt(x * y.val, L)
 Base.:*(x::NamedInt{Lx}, y::NamedInt{Ly}) where {Lx, Ly} = NamedInt(x.val * y.val, _join(Lx, Ly))
-Base.literal_pow(::typeof(^), x::NamedInt{L}, ::Val{2}) where {L} =
-    NamedInt(Base.literal_pow(^, x.val, Val(2)), _join(L,L))
+# Base.literal_pow(::typeof(^), x::NamedInt{L}, ::Val{2}) where {L} =
+#     NamedInt(Base.literal_pow(^, x.val, Val(2)), _join(L,L))
 
 # These operations forget the name:
 Base.literal_pow(::typeof(^), x::NamedInt, p::Val) = Base.literal_pow(^, x.val, p)
 for f in [:abs, :abs2, :sign, :string, :Int, :float, :-, :OneTo]
     @eval Base.$f(x::NamedInt) = Base.$f(x.val)
 end
-for (T,S) in [(:NamedInt, :Number), (:Number, :NamedInt), (:NamedInt, :NamedInt)]
+for (T,S) in [(:NamedInt, :Integer), (:Integer, :NamedInt), (:NamedInt, :NamedInt)]
     for op in [:(==), :<, :>, :>=, :<=]
         @eval Base.$op(x::$T, y::$S) = $op(value(x), value(y))
     end
@@ -69,7 +69,8 @@ Base.promote_rule(::Type{<:NamedInt}, ::Type{T}) where {T<:Number} = T
 for N in 1:10 # hack to not exactly overwrite existing defn.
     @eval begin
         Base.size(x::NamedDimsArray{L,T,$N}) where {L,T} = map(NamedInt, size(parent(x)), L)
-        Base.size(x::NamedDimsArray{L,T,$N}, d::Int) where {L,T} = NamedInt(size(parent(x),d), L[d])
+        Base.size(x::NamedDimsArray{L,T,$N}, d::Integer) where {L,T} =
+            d <= $N  ? NamedInt(size(parent(x),d), L[d]) : 1
         # Base.size(x::NamedDimsArray{L,T,$N}, s::Symbol) where {L,T} = size(x, NamedDims.dim(x,s))
     end
 end
@@ -103,6 +104,8 @@ Base.fill(val, ni::NamedInt, ni′::NamedInt, rest::Integer...) = named_fill(val
 
 named_fill(val, sz::Integer...) = NamedDimsArray(fill(val, value.(sz)...), name.(sz))
 
+#################### RESHAPE ####################
+
 const CorI = Union{Colon,Integer}
 value(::Colon) = (:)
 name(::Colon) = :_
@@ -113,7 +116,10 @@ Base.reshape(A::AbstractArray, ni::NamedInt, ni′::NamedInt, rest::CorI...) = n
 
 named_reshape(A::AbstractArray, sz::CorI...) = NamedDimsArray(reshape(unname(A), value.(sz)...), name.(sz))
 
-
+# function named_reshape(A::NamedUnion, sz::CorI...)
+#     getnames(A)
+#     target = name.(sz) # what do I want?
+# end
 
 
 ####################
