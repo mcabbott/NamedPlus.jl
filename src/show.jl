@@ -5,7 +5,7 @@ function Base.summary(io::IO, A::NamedDimsArray)
     print(io, ", ", getnames(A), ")")
 end
 
-function Base.print_matrix(io::IO, A::NamedDimsArray)
+function Base.print_matrix(io::IO, A::NamedUnion)
     s1 = string("↓ :", getnames(A,1)) * "  "
     # s1c = "\e[35m$(s1)\e[0m"
     if ndims(A)==2
