@@ -224,8 +224,27 @@ end
 end
 =#
 
-using LinearAlgebra, TensorOperations, TransmuteDims
+using LinearAlgebra, TensorOperations, TransmuteDims, EllipsisNotation
 
+@testset "named and .." begin
+
+    names(named(ones(1,1,1,1), ..)) == (:_, :_, :_, :_)
+    names(named(ones(1,1,1,1), :a, ..)) == (:a, :_, :_, :_)
+    names(named(ones(1,1,1,1), :a, :b, ..)) == (:a, :b, :_, :_)
+    names(named(ones(1,1,1,1), :a, :b, :c, :d, ..)) == (:a, :b, :c, :d)
+
+    names(named(ones(1,1,1,1), .., :z)) == (:_, :_, :_, :z)
+    names(named(ones(1,1,1,1), .., :y, :z)) == (:_, :_, :y, :z)
+    names(named(ones(1,1,1,1), .., :w, :x, :y, :z)) == (:w, :x, :y, :z)
+
+    names(named(ones(1,1,1,1), :a, .., :z)) == (:a, :_, :_, :z)
+    names(named(ones(1,1,1,1), :a, :b, .., :z)) == (:a, :b, :_, :z)
+    names(named(ones(1,1,1,1), :a, .., :y, :z)) == (:a, :_, :y, :z)
+    names(named(ones(1,1,1,1), :a, :b, .., :y, :z)) == (:a, :b, :y, :z)
+
+    @test_throws Exception named(ones(1,1,1), :a, :b, .., ..)
+
+end
 @testset "wrapper types" begin
 
     d = Diagonal(v)

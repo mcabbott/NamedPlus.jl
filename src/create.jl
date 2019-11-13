@@ -1,4 +1,55 @@
 
+#################### NAMED ####################
+
+import IntervalSets, EllipsisNotation
+const Dots = Union{typeof(IntervalSets.:(..)), EllipsisNotation.Ellipsis}
+
+"""
+    named(A, names...)
+
+This differs from `NamedDimsArray(A, names)` except that
+it allows `..` to fill in as many wildcards as needed.
+(And it saves typing nine letters and two brackets.)
+
+To use `..` you need either `using IntervalSets` or `using EllipsisNotation`.
+"""
+named(A::AbstractArray, names::Tuple) = named(A, names...)
+function named(A::AbstractArray, names::Union{Symbol, Dots}...)
+    names isa Tuple{Vararg{Symbol}} && return NamedDimsArray(A, names)
+
+    found = 0
+    tup = ntuple(length(names)) do d
+        n = names[d]
+        n isa Symbol && return 0
+        found += 1
+        found ==1 && return d
+        error("can't have two ..!")
+    end
+    early = sum(tup) - 1
+    late = ndims(A) - length(names) + sum(tup) + 1
+    off = late - sum(tup) - 1
+
+
+# @show sum(tup) early late off
+# i j .. k
+# early = 2
+# late = 7
+# off = 3
+# 1 2 3 4 5 6 7
+# i j         k
+
+    final = ntuple(ndims(A)) do d
+        d <= early && return names[d]
+        d >= late && return names[d - off]
+        return :_
+    end
+
+# @show final
+    late > early || @warn "not all names in $names will be used in output $final"
+
+    NamedDimsArray(A, final)
+end
+
 #################### ZERO, ONES ####################
 
 zero_doc = """

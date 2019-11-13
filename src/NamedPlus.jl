@@ -19,7 +19,7 @@ include("permute.jl")
 export canonise, align
 
 include("create.jl")
-export diagonal, outer
+export named, diagonal, outer
 
 include("reshape.jl")
 

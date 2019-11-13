@@ -5,12 +5,14 @@
 This package exists to experiment with the arrays provided by 
 [NamedDims.jl](https://github.com/invenia/NamedDims.jl). 
 
-Things which work:
+Convenient ways to add names:
 ```julia
 @named begin
     m{i,j} = rand(Int8, 3,4)             # create a matrix whose type has (:i,:j)
     g = [n^i for n in 1:20, i in 1:3]    # read names from generator's variables
 end
+ones(i=1, j=4) .+ rand(Int8, i=3)        # base piracy, but convenient.
+named(rand(4,3,1,1,2), :a, .., :z)       # using EllipsisNotation
 
 t = split(g, :n => (j=4, k=5))           # just reshape, new size (4,5,3)
 join(t, (:i, :k) => :χ)                  # copy if non-adjacent, size (4,15)
@@ -20,8 +22,6 @@ d,k = size(m); @show d                   # NamedInt, which exists for:
 z = zeros(d,d')                          # ones, fill, etc, plus ranges:
 z .= [sqrt(i) for i in 1:d, i′ in 1:d']  # comprehensions have names with PR#81
 reshape(g, k,:,d) .+ g[end, d]
-
-ones(i=1, j=4) .+ rand(Int8, i=3)        # base piracy, but convenient.
 ```
 
 Re-ordering of dimensions:
@@ -41,3 +41,9 @@ Some other bits have moved to [AxisRanges.jl](https://github.com/mcabbott/AxisRa
 Which the macro knows about, e.g. `@named [n^i for n in 1:2:20, i in 1:3]` has ranges,
 if both packages are loaded.
 
+Compared to [Pytorch](https://pytorch.org/docs/stable/named_tensor.html)'s new named tensors: 
+
+* `refine_names` ⟶ `named`, except with `..` instead of `...`.
+* `unflatten` ⟶ `split` exactly, and `flatten` ⟶ `join`, except that for them "All of dims must be consecutive in order" while mine permutes if required.
+* `.align_to` and `.align_as` ⟶ `align`, mine allows the target to be either a subset or a superset (or neither) of the input. Theirs allows `...` again.
+* No support for einsum, but `torch.matmul` handles batched matrix multiplication.
