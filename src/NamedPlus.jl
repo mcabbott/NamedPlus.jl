@@ -26,6 +26,9 @@ include("reshape.jl")
 include("rename.jl")
 export prime
 
+include("mul.jl")
+export mul, *ᵃ
+
 # include("plots.jl")
 
 include("show.jl")

@@ -203,6 +203,34 @@ end
     @test names(range(i=3:4)) == (:i,)
 
 end
+@testset "matrix mult" begin
+
+    ab = rand(Int8, a=2, b=2)
+    bc = rand(Int8, b=2, c=2)
+    ca = rand(Int8, c=2, a=2)
+    aa = rename(bc, :b => :a, :c => :a)
+
+    @test mul(ab, bc) == ab * bc
+    @test mul(ab', bc') == ab * bc
+    @test mul(ab, ca) == ab' * ca'
+    @test_throws Exception mul(ab, ab')
+    @test_throws Exception mul(ab, aa)
+
+    @test mul(ab, ab, :a) == ab' * ab
+    @test mul(ab, ab, :b) == ab * ab'
+    @test_throws Exception mul(ab, aa, :a)
+
+    a = rand(Int8, a=2)
+
+    mul(a, a) == a' * a
+    mul(a, ca) == ca * a
+    mul(a, ab) == ab' * a
+    @test_throws Exception mul(a, bc)
+    @test_throws Exception mul(a, aa)
+
+    @test ab *ᵃ bc == ab * bc
+
+end
 
 using LinearAlgebra, TensorOperations
 

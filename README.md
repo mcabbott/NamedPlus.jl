@@ -30,6 +30,9 @@ align(m, (:j, :k, :i))                   # lazy generalised permutedims
 @named q{i,j,k} = m .+ t                 # used for auto-permuted broadcasting
 align(m, t) .+ t                         # or to manually fix things up
 
+m *ᵃ z == mul(m, z, :i) == m' * z        # matrix multiplication on shared index
+g *ᵃ m == (m *ᵃ g)'
+
 using TensorOperations                   # named inputs re-arranged via Strided
 @named @tensor p[j,i′] := m[i,j] * z[i,i′]
 ```
