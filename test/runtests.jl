@@ -26,17 +26,6 @@ z = NamedDimsArray(rand(26), :z)
     @test_skip ranges(@named [x^i for x in 1:2:10, i in 1:3]) == (1:2:10, 1:3)
 
 end
-@testset "unname with names" begin
-
-    @test unname(m, (:j, :i)) === transpose(parent(m))
-
-    @test unname(t, (:i,:j,:k)) === parent(t)
-    @test unname(t, (:i,:k,:j)) === PermutedDimsArray(parent(t), (1,3,2))
-
-    # @test names(align(m, (:i, :k, :j))) == (:i, :_, :j)
-    # @test names(align(v, (:i, :j, :k))) == (:_, :j, :_)
-
-end
 @testset "align" begin
 
     v1 = align(v, (:j, :k))
@@ -203,6 +192,8 @@ end
     @test names(range(i=3:4)) == (:i,)
 
 end
+#=
+# These require https://github.com/invenia/NamedDims.jl/pull/79
 @testset "matrix mult" begin
 
     ab = rand(Int8, a=2, b=2)
@@ -231,8 +222,9 @@ end
     @test ab *ᵃ bc == ab * bc
 
 end
+=#
 
-using LinearAlgebra, TensorOperations
+using LinearAlgebra, TensorOperations, TransmuteDims
 
 @testset "wrapper types" begin
 
