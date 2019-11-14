@@ -7,7 +7,7 @@ const Dots = Union{typeof(IntervalSets.:(..)), EllipsisNotation.Ellipsis}
 """
     named(A, names...)
 
-This differs from `NamedDimsArray(A, names)` except that
+This differs from `NamedDimsArray(A, names)` in that
 it allows `..` to fill in as many wildcards as needed.
 (And it saves typing nine letters and two brackets.)
 
