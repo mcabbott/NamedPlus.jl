@@ -7,10 +7,12 @@
 
 This replaces two dimensions `i, j` with a combined one `iᵡj`.
 
-If the dimensions are adjecent and in the correct order
+If the dimensions are adjacent and in the correct order
 (and `A` is not a lazy `Transpose` etc) then this will be done by reshaping.
 But if the dimensions aren't adjacent, or are in the wrong order,
 then it needs to call `permutedims` first, which will copy `A`.
+
+See `split(A, :iᵡj => (i=3, j=4))` for the reverse operation.
 """
 Base.join(A::NamedUnion, i::Symbol, j::Symbol) = join(A, (i,j) => _join(i,j))
 Base.join(A::NamedUnion, ij::Tuple) = join(A, ij...)
@@ -83,7 +85,9 @@ you may write `(2,:)` etc.
 
     split(A, :iᵡj => (:i, :j), B)
 
-The final sizes can also bew read from another `B::NamedDimsArray` with names `i, j`.
+The final sizes can also be read from another `B::NamedDimsArray` with names `i, j`.
+
+See `join(A, (:i, :j) => :iᵡj)` for the opposite operation.
 """
 Base.split(A::NamedUnion, pair::Pair{Symbol,<:NamedTuple}) =
     split(A, pair.first => keys(pair.second), Tuple(pair.second))

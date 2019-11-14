@@ -2,8 +2,8 @@
 #################### LAZY ALIGN ####################
 
 """
-    align(A, names)
-    align(A, B)
+    A′ = align(A, names)
+    A′ = align(A, B) = align(A, names(B))
 
 This is a lazy generalised `permutedims`. It will do nothing if the names match up,
 or insert `Transpose` etc. if they need to be permuted.

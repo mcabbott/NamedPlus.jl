@@ -5,7 +5,7 @@ import IntervalSets, EllipsisNotation
 const Dots = Union{typeof(IntervalSets.:(..)), EllipsisNotation.Ellipsis}
 
 """
-    named(A, names...)
+    A′ = named(A, names...)
 
 This differs from `NamedDimsArray(A, names)` in that
 it allows `..` to fill in as many wildcards as needed.
@@ -14,6 +14,8 @@ it allows `..` to fill in as many wildcards as needed.
 To use `..` you need either `using IntervalSets` or `using EllipsisNotation`.
 """
 named(A::AbstractArray, names::Tuple) = named(A, names...)
+named(A::AbstractArray, B::NamedUnion) = named(A, names(B))
+
 function named(A::AbstractArray, names::Union{Symbol, Dots}...)
     names isa Tuple{Vararg{Symbol}} && return NamedDimsArray(A, names)
 
@@ -188,6 +190,7 @@ const newaxis = [CartesianIndex()]
     diagonal(m)
 
 `diagonal` is to `Diagonal` about as `transpose` is to `Transpose`.
+
 On an ordinary Vector there is no distinction, but on a NamedDimsArray it returns
 `NamedDimsArray{T,2,Diagonal}` instead of `Diagonal{T,NamedDimsArray}`.
 This has two independent names, by default the same as that of the vector,
