@@ -5,7 +5,7 @@
     mul(A, B, s)
     mul(A, B) = A *ᵃ B
 
-Matrix multiplication for `NamedDimsArray`s, which automatically transposes as required.
+Matrix multiplication for two `NamedDimsArray`s, which automatically transposes as required.
 If given a name `s`, it arranges to sum over this index.
 If not, it looks for a name shared between the two. The infix form is typed `*\\^a<tab>`.
 """
@@ -45,7 +45,13 @@ end
 
 function mul(x::NamedDimsArray{Lx,Tx,1}, y::NamedDimsArray{Ly,Ty,2}, s::Symbol) where {Lx,Tx,Ly,Ty}
     Ly[1] == Ly[2] && contract_error(x, y, s)
-    dropdims(mul(transpose1(x), y, s), dims=1)
+    if s == Lx[1] == Ly[1]
+        transpose1(transpose1(x) * y)
+    elseif s == Lx[1] == Ly[2]
+        transpose1(transpose1(x) * transpose1(y))
+    else
+        contract_error(x, y, s)
+    end
 end
 
 function mul(x::NamedDimsArray{Lx,Tx,2}, y::NamedDimsArray{Ly,Ty,2}, s::Symbol) where {Lx,Tx,Ly,Ty}
