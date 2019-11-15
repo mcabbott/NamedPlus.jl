@@ -149,7 +149,7 @@ end
 
     # Ranges
     @test names(1:ni) == (:i,)
-    @test_skip names([x^i for x in 1:nj, i in 1:ni]) == (:j, :i) # need my PR
+    @test names([x^i for x in 1:nj, i in 1:ni]) == (:j, :i)
 
     # reshape
     @test names(reshape(rand(6), ni, nj)) == (:i, :j)
