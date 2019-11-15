@@ -4,15 +4,16 @@
 
 This package exists to experiment with the arrays provided by 
 [NamedDims.jl](https://github.com/invenia/NamedDims.jl). 
+Here's what works:
 
-Convenient ways to add names:
+Some convenient ways handle names:
 ```julia
 @named begin
     m{i,j} = rand(Int8, 3,4)             # create a matrix whose type has (:i,:j)
     g = [n^i for n in 1:20, i in 1:3]    # read names from generator's variables
 end
 ones(i=1, j=4) .+ rand(Int8, i=3)        # base piracy, but convenient.
-a_z = named(rand(4,3,1,1,2), :a, .., :z) # using EllipsisNotation
+a_z = named(rand(4,1,1,2), :a, .., :z)   # using EllipsisNotation
 dropdims(a_z)                            # defaults to :_, and kills all of them.
 
 t = split(g, :n => (j=4, k=5))           # just reshape, new size (4,5,3)
@@ -25,11 +26,13 @@ z .= [sqrt(i) for i in 1:d, i′ in 1:d']  # comprehensions have names
 reshape(g, k,:,d) .+ g[end, d]
 ```
 
-Re-ordering of dimensions:
+Some automatic re-ordering of dimensions:
 ```julia
 align(m, (:j, :k, :i))                   # lazy generalised permutedims
 @named q{i,j,k} = m .+ t                 # used for auto-permuted broadcasting
 align(m, t) .+ t                         # or to manually fix things up
+
+sum!ᵃ(Int.(m), t)                        # reduce (:j, :k, :i) into (:i, :j)
 
 m *ᵃ z == mul(m, z, :i) == m' * z        # matrix multiplication on shared index
 g *ᵃ m == (m *ᵃ g)'

@@ -24,8 +24,12 @@ function align(A::NamedUnion, target::Tuple{Vararg{Symbol}})
     B = canonise(A)
     namesB = getnames(B)
 
-    allunique(namesB) || error("input must have unique names, got $namesB (after canonicalisation)")
-    Base.sym_in(:_, target) && Base.sym_in(:_, namesB) && error("if both input and target have wildcards then result is always ambigous.")
+    allunique(namesB) || error("input must have unique names, got $namesB" *
+        (getnames(A)==getnames(B) ? "" : " after canonicalisation"))
+    # Base.sym_in(:_, target) && Base.sym_in(:_, namesB) && error(
+    #     "if the input has wildcards, and the target has either wildcards or new symbols, then result is always ambigous. Got $namesB and $target") # wildcards in B get pushed to end anyway, and then it comes here
+    Base.sym_in(:_, namesB) && error("input must not have wildcards, got $namesB" *
+        (getnames(A)==getnames(B) ? "" : " after canonicalisation"))
 
     perm = map(n -> NamedDims.dim_noerror(namesB, n), target)
 
@@ -122,6 +126,17 @@ function TransmuteDims.Transmute{perm}(data::A) where {A<:NamedUnion, perm}
     # :( TransmutedDimsArray{$T,$N,$perm_plus,$iperm,$A,$L}(data) )
     TransmutedDimsArray{T,N,perm_plus,iperm,A,L}(data)
 end
+
+#################### REDUCE ####################
+
+"""
+    sum!ᵃ(A, B)
+
+This variant of `sum!` automatically `align`s dimensions by name.
+See also `prod!ᵃ`, and `*ᵃ`.
+"""
+sum!ᵃ(A::NamedDimsArray, B::NamedDimsArray) = sum!(A, align(B, getnames(A)))
+prod!ᵃ(A::NamedDimsArray, B::NamedDimsArray) = prod!(A, align(B, getnames(A)))
 
 #################### CANONICALISE ####################
 
