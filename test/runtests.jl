@@ -131,6 +131,16 @@ end
     @test 0 == @allocated (() -> _split(_join(:i, :j)))()
 
 end
+@testset "vec, dropdims" begin
+
+    @test names(vec(v)) ==  (:j,)
+    @test names(vec(m)) ==  (:iᵡj,)
+    @test names(vec(t)) ==  (:_,)
+
+    @test size(dropdims(NamedDimsArray(rand(2,1,1), (:a, :_, :_)))) == (2,)
+    @test names(dropdims(named(ones(2,2,1,1,2), :a, :b, .., :c))) == (:a, :b, :c)
+
+end
 @testset "named int" begin
 
     ni, nj = size(m)

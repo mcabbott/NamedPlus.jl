@@ -1,4 +1,44 @@
 
+#################### VEC ####################
+
+function Base.vec(A::NamedUnion)
+    ndims(A) == 1 && return A
+    ndims(A) >= 3 && return vec(nameless(A))
+    NamedDimsArray(vec(nameless(A)), _join(getnames(A)...))
+end
+
+Base.reshape(A::NamedDimsArray, ::Colon) = vec(A)
+
+#################### DROPDIMS ####################
+
+# Override the defn in NamedDims, with the goal of dropping all matches of a symbol.
+
+for N=1:10
+    @eval Base.dropdims(A::NamedDimsArray{L,T,$N}; dims = :_) where {L,T} =
+        named_dropdims(A, dims)
+end
+
+named_dropdims(A, s::Union{Int, Symbol}) = named_dropdims(A, (s,))
+
+function named_dropdims(A, dims::Tuple{Vararg{Symbol}})
+    L = getnames(A)
+    maybe = ntuple(d -> Base.sym_in(L[d], dims) ? d : nothing, ndims(A))
+    named_dropdims(A, filter(d -> d isa Int, maybe))
+end
+
+function named_dropdims(A, dims::Tuple{Vararg{Int}})
+    data = dropdims(nameless(A); dims=dims)
+    newL = NamedDims.remaining_dimnames_after_dropping(getnames(A), dims)
+    NamedDimsArray(data, newL)
+end
+
+# function Base.dropdims(nda::NamedDimsArray; dims)
+#     numerical_dims = dim(nda, dims)
+#     data = dropdims(parent(nda); dims=numerical_dims)
+#     L = remaining_dimnames_after_dropping(names(nda), numerical_dims)
+#     return NamedDimsArray{L}(data)
+# end
+
 #################### SPLIT / COMBINE ####################
 
 """

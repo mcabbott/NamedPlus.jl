@@ -12,7 +12,8 @@ Convenient ways to add names:
     g = [n^i for n in 1:20, i in 1:3]    # read names from generator's variables
 end
 ones(i=1, j=4) .+ rand(Int8, i=3)        # base piracy, but convenient.
-named(rand(4,3,1,1,2), :a, .., :z)       # using EllipsisNotation
+a_z = named(rand(4,3,1,1,2), :a, .., :z) # using EllipsisNotation
+dropdims(a_z)                            # defaults to :_, and kills all of them.
 
 t = split(g, :n => (j=4, k=5))           # just reshape, new size (4,5,3)
 join(t, (:i, :k) => :χ)                  # copy if non-adjacent, size (4,15)
@@ -20,7 +21,7 @@ rename(m, :i => :z)                      # rename just i
 
 d,k = size(m); @show d                   # NamedInt, which exists for:
 z = zeros(d,d')                          # ones, fill, etc, plus ranges:
-z .= [sqrt(i) for i in 1:d, i′ in 1:d']  # comprehensions have names with PR#81
+z .= [sqrt(i) for i in 1:d, i′ in 1:d']  # comprehensions have names
 reshape(g, k,:,d) .+ g[end, d]
 ```
 
