@@ -104,6 +104,16 @@ Base.fill(val, ni::NamedInt, ni′::NamedInt, rest::Integer...) = named_fill(val
 
 named_fill(val, sz::Integer...) = NamedDimsArray(fill(val, value.(sz)...), name.(sz))
 
+Base.similar(A::AbstractArray, ni::NamedInt, rest::Integer...) = named_similar(A, eltype(A), ni, rest...)
+Base.similar(A::AbstractArray, i::Integer, ni::NamedInt, rest::Integer...) = named_similar(A, eltype(A), i, ni, rest...)
+Base.similar(A::AbstractArray, ni::NamedInt, ni′::NamedInt, rest::Integer...) = named_similar(A, eltype(A), ni, ni′, rest...)
+
+Base.similar(A::AbstractArray, T::Type, ni::NamedInt, rest::Integer...) = named_similar(A, T, ni, rest...)
+Base.similar(A::AbstractArray, T::Type, i::Integer, ni::NamedInt, rest::Integer...) = named_similar(A, T, i, ni, rest...)
+Base.similar(A::AbstractArray, T::Type, ni::NamedInt, ni′::NamedInt, rest::Integer...) = named_similar(A, T, ni, ni′, rest...)
+
+named_similar(A, T, sz::Integer...) = NamedDimsArray(similar(nameless(A), T, value.(sz)...), name.(sz))
+
 #################### RESHAPE ####################
 
 const CorI = Union{Colon,Integer}
