@@ -43,13 +43,17 @@ end
 #################### PRIMES ####################
 
 """
+    prime(x)
+
+Add a unicode prime `′` to every dimension name.
+Acting on symbols, `prime(s) == Symbol(s, '′')` but faster.
+
     prime(x, d::Int)
     prime(x, first) = prime(x, 1)
     prime(x, last)  = prime(x, ndims(x))
     prime(x, i::Symbol) = rename(x, i => prime(i))
 
-Add a unicode prime `′` to either the indicated index name, or to the given symbol.
-Acting on symbols, `prime(s) == Symbol(s, '′')` but faster.
+Add a `′` to either the indicated index name, or to the given symbol.
 """
 prime(s::Symbol)::Symbol = _prime(Val(s))
 # @btime (() -> prime(:a))() # shows 0 allocations
@@ -62,18 +66,20 @@ _prime(tup::NTuple{N,Symbol}, ::Val{n}) where {N,n} =
     ntuple(i -> i==n ? prime(tup[i])::Symbol : tup[i], N)
 
 prime(x::NamedUnion, d::Int) =
-    NamedDimsArray{_prime(getnames(x), Val(d))}(nameless(x))
+    NamedDimsArray(nameless(x), _prime(getnames(x), Val(d)))
 prime(x::NamedUnion, ::typeof(first)) =
-    NamedDimsArray{_prime(getnames(x), Val(1))}(nameless(x))
+    NamedDimsArray(nameless(x), _prime(getnames(x), Val(1)))
 prime(x::NamedUnion, ::typeof(last)) =
-    NamedDimsArray{_prime(getnames(x), Val(ndims(x)))}(nameless(x))
+    NamedDimsArray(nameless(x), _prime(getnames(x), Val(ndims(x))))
 
 prime(x::NamedDimsArray{L,T,1}) where {L,T} =
-    NamedDimsArray{(_prime(Val(L[1])),)}(parent(x))
+    NamedDimsArray(parent(x), (_prime(Val(L[1])),))
 
 prime(x::NamedUnion, s::Symbol) = rename(x, s => prime(s))
 
 prime(x::AbstractArray, d) = x
+
+prime(x::NamedUnion) = NamedDimsArray(nameless(x), map(prime, getnames(x)))
 
 #=
 # These are zero-cost:
