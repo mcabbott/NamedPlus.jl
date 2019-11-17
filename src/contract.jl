@@ -3,18 +3,23 @@
 
 import .TensorOperations: contract!
 
-# import NamedPlus: contract; using TensorOperations: contract!
+# import NamedPlus: contract, _contract, contract∇A; using TensorOperations: contract!
+
+struct One <: Integer end
+Base.promote_rule(::Type{<:One}, ::Type{T}) where {T<:Number} = T
+Base.convert(::Type{T}, ::One) where {T<:Number} = convert(T, 1)
 
 """
     contract(A, B, s)
     contract(A, B)
 
-This is like `mul` except that it accepts not just matrices but also higer-dimensional arrays.
-If no names are provided, then it contracts all names in common between `A` and `B`.
-This is just a wrapper for `TensorOperations.contract!`.
+This is like `mul` except that it accepts not just matrices but also higer-dimensional arrays,
+using `TensorOperations.contract!`.
+By default it contracts over all names shared between `A` and `B`,
+if there are none then it is equivalent to `outer(A,B)`.
 
     contract(γ, A, B)
-    contract(A', B)
+    contract(A', B)    # not yet!
 
 To multiply by a number `γ`, write it first. To conjugate all elements of one matrix,
 write `adjoint(A)`, which thanks to some piracy is no longer an error.
@@ -23,37 +28,53 @@ contract(A::NamedDimsArray, B::NamedDimsArray, s::Symbol) = contract(A, B, Val((
 
 @generated function contract(A::NamedDimsArray{LA}, B::NamedDimsArray{LB}) where {LA,LB}
     s = filter(n -> Base.sym_in(n, LB), LA)
-    :(contract(A, B, Val($s)))
+    :(contract(One(), A, B, Val($s)))
 end
 
+@generated function contract(γ::Number, A::NamedDimsArray{LA}, B::NamedDimsArray{LB}) where {LA,LB}
+    s = filter(n -> Base.sym_in(n, LB), LA)
+    :(contract(γ, A, B, Val($s)))
+end
 
 @generated function contract(γ::Number, A::NamedDimsArray{LA,TA,NA}, B::NamedDimsArray{LB,TB,NB}, ::Val{s}) where {LA,LB,TA,TB,NA,NB,s}
     cindA = NamedDims.dim(LA, s)
     oindA = Tuple(setdiff(1:NA, cindA))
-
     cindB = NamedDims.dim(LB, s)
     oindB = Tuple(setdiff(1:NB, cindB))
 
     indCinoAB = Tuple(vcat(1:length(oindA), length(oindA) .+ (1:length(oindB))))
     TC = Base.promote_type(TA,TB)
-    # @show oindA cindA oindB cindB indCinoAB
 
-    sizeC = (map(d -> :(size(A,$d)), oindA)..., map(d -> :(size(B,$d)), oindB)...)
-    sizeCint = :(map(Int, ($(sizeC...),) )) # avoid NamedInt!
+    @gensym C
     out = quote
-        C = similar(nameless(A), $TC, $sizeCint)
-        contract!(true, nameless(A), :N, nameless(B), :N, false, C, $oindA, $cindA, $oindB, $cindB, $indCinoAB)
+        $C = _contract(γ, nameless(A), :N, nameless(B), :N, $oindA, $cindA, $oindB, $cindB, $indCinoAB)
     end
 
     LC = (map(d -> LA[d], oindA)..., map(d -> LB[d], oindB)...)
-    if length(sizeC) == 0
-        push!(out.args, :(first(C)))
+    if length(oindA) == length(oindB) == 0
+        push!(out.args, :(first($C)))
     else
-        push!(out.args, :(NamedDimsArray{$LC}(C)))
+        push!(out.args, :(NamedDimsArray{$LC}($C)))
     end
     out
 end
 
+
+"""
+    _contract(γ, A, :N, B, :N, ...)
+
+This is just like `contract!` except that it makes C by itself,
+and that it understands `γ::One` as a constant 1.
+It does not handle names at all.
+"""
+function _contract(γ, A, conjA, B, conjB, oindA, cindA, oindB, cindB, indCinoAB)
+    sizes = (map(d -> size(A,d), oindA)..., map(d -> size(B,d), oindB)...)
+    sizeC = map(i -> sizes[i], indCinoAB) # this could be out by an invperm type thing
+    TC = Base.promote_type(eltype(A), eltype(B))
+    C = similar(A, TC, sizeC)
+    α = γ isa One ? true : γ
+    contract!(α, A, conjA, B, :N, false, C, oindA, cindA, oindB, cindB, indCinoAB)
+end
 
 # Hack to let you conjugate one array easily?
 # for N in 3:10
@@ -95,62 +116,52 @@ ccn(m,g) = NamedDimsArray(
 # contract!(true, nameless(A), :N, nameless(B), :N, false, C, $oindA, $cindA, $oindB, $cindB, $indCinoAB)
 
 #################### GRADIENT ####################
-# Same as in TensorTrack.jl
 
+using TupleTools
 using ZygoteRules: @adjoint
 
-@adjoint function contract!(α, A, conjA, B, conjB, β, C, oindA, cindA, oindB, cindB, indCinoAB, syms)
-    contract!(α, A, conjA, B, conjB, β, C, oindA, cindA, oindB, cindB, indCinoAB, syms),
-    Δ -> ∇contract(Δ, α, A, conjA, B, conjB, β, C, oindA, cindA, oindB, cindB, indCinoAB, syms)
+@adjoint (::Type{T})(x) where {T<:NamedDimsArray} = T(x), Δ -> (nameless(Δ),)
+
+@adjoint nameless(x::NamedDimsArray{L}) where {L} = nameless(x), Δ -> (NamedDimsArray{L}(Δ),)
+
+# Adapted from TensorTrack.jl
+
+@adjoint function _contract(α, A, conjA, B, conjB, oindA, cindA, oindB, cindB, indCinoAB)
+    C = _contract(α, A, conjA, B, conjB, oindA, cindA, oindB, cindB, indCinoAB)
+    function back(Δ)
+        ∇A = contract∇A(Δ, α, A, conjA, B, conjB, oindA, cindA, oindB, cindB, indCinoAB)
+        ∇B = contract∇B(Δ, α, A, conjA, B, conjB, oindA, cindA, oindB, cindB, indCinoAB)
+
+        ∇α = α isa One ? nothing : contract∇α(Δ, α, C)
+
+        (∇α, ∇A, nothing, ∇B, nothing, nothing, nothing, nothing, nothing, nothing)
+    end
+    return C, back
 end
 
-function ∇contract(Δ, α::Tα, A::TA, conjA, B::TB, conjB, β::Tβ, C::TC, oindA, cindA, oindB, cindB, indCinoAB, syms) where {Tα,TA,Tβ,TB,TC}
+findint(n::Int, tup::Tuple)::Int = findfirst(==(n), tup)
 
-    ∇A = contract∇A(Δ, α, A, conjA, B, conjB, β, C, oindA, cindA, oindB, cindB, indCinoAB, syms)
-    ∇B = contract∇B(Δ, α, A, conjA, B, conjB, β, C, oindA, cindA, oindB, cindB, indCinoAB, syms)
-    ∇C = any∇C(Δ,β)
-
-    ∇α = 0 # false # contract∇α(Δ, α, A, conjA, B, conjB, β, C, oindA, cindA, oindB, cindB, indCinoAB)
-    ∇β = 0 # false # contract∇β(Δ, α, A, conjA, B, conjB, β, C, oindA, cindA, oindB, cindB, indCinoAB)
-
-    return (∇α, ∇A, nothing, ∇B, nothing, ∇β, ∇C, nothing, nothing, nothing, nothing, nothing, nothing)
-end
-
-
-findint(n::Int, tup::Tuple)::Int = findfirst(i->i==n, tup)
-
-function contract∇A(Δ, α, A, conjA, B, conjB, β, C, oindA, cindA, oindB, cindB, indCinoAB, syms=nothing)
-
-    indAinoΔB_old = ntuple(i->i, ndims(A))
+function contract∇A(Δ, α, A, conjA, B, conjB, oindA, cindA, oindB, cindB, indCinoAB)
     indAinoΔB = TupleTools.invperm((oindA..., cindA...))
-    ∇VERBOSE && println("indAinoΔB_old = ",indAinoΔB_old, "  , indAinoΔB = ",indAinoΔB)
+
     oindΔ = ntuple(i -> findint(i, indCinoAB), length(oindA))
     cindΔ = ntuple(i -> findint(i+length(oindA), indCinoAB), length(oindB))
 
-    simA = similar(A)
-    # indA = ntuple(i->i, ndims(A))
-    # simA = cached_similar_from_indices(sym_glue(syms, :_c∇A), eltype(A), indA, (), A, :N)
-
-    ∇A = contract!(α, Δ, conjA, B, conjB, false, simA, oindΔ, cindΔ, cindB, oindB, indAinoΔB, sym_suffix(syms, :_∇A))
+    ∇A = _contract(α, Δ, conjA, B, conjB, oindΔ, cindΔ, cindB, oindB, indAinoΔB)
 end
 
-function contract∇B(Δ, α, A, conjA, B, conjB, β, C, oindA, cindA, oindB, cindB, indCinoAB, syms=nothing)
-
+function contract∇B(Δ, α, A, conjA, B, conjB, oindA, cindA, oindB, cindB, indCinoAB)
     indBinoAΔ = TupleTools.invperm((cindB..., oindB...))
+
     oindΔ = ntuple(i -> findint(i+length(oindA), indCinoAB), length(oindB))
     cindΔ = ntuple(i -> findint(i, indCinoAB), length(oindA))
 
-    simB = similar(B)
-    # indB = ntuple(i->i, ndims(B))
-    # simB = cached_similar_from_indices(sym_glue(syms, :_c∇B), eltype(B), indB, (), B, :N)
-
-    ∇B = contract!(α, A, conjA, Δ, conjB, false, simB, cindA, oindA, oindΔ, cindΔ, indBinoAΔ, sym_suffix(syms, :_∇B))
+    ∇B = _contract(α, A, conjA, Δ, conjB, cindA, oindA, oindΔ, cindΔ, indBinoAΔ)
 end
 
-sym_suffix(syms, suffix) = Symbol.(syms, suffix)
-sym_suffix(::Nothing, suffix) = nothing
-
-sym_glue(syms, suffix) = Symbol(syms..., suffix)
-sym_glue(::Nothing, suffix) = Symbol(:Δnew, suffix)
+function contract∇α(Δ, α, C)
+    allind = ntuple(identity, ndims(C))
+    _contract(One(), Δ, :N, C, :N, allind, (), allind, (), ())
+end
 
 ####################

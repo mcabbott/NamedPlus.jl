@@ -39,6 +39,7 @@ g *ᵃ m == (m *ᵃ g)'
 
 using TensorOperations                   # named inputs re-arranged via Strided
 @named @tensor p[j,i′] := m[i,j] * z[i,i′]
+contract(m, prime(t, :i))                # shared index :j, leaving (:i, :k, :i′)
 ```
 
 Some other bits have moved to [AxisRanges.jl](https://github.com/mcabbott/AxisRanges.jl).
