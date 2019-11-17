@@ -9,6 +9,14 @@ end
 
 Base.reshape(A::NamedDimsArray, ::Colon) = vec(A)
 
+#################### KRON ####################
+
+function Base.kron(A::NamedUnion, B::NamedUnion)
+    data = kron(nameless(A), nameless(B))
+    newL = map(_join, getnames(A), getnames(B))
+    NamedDimsArray(data, newL)
+end
+
 #################### DROPDIMS ####################
 
 # Override the defn in NamedDims, with the goal of dropping all matches of a symbol.
@@ -18,15 +26,15 @@ for N=1:10
         named_dropdims(A, dims)
 end
 
-named_dropdims(A, s::Union{Int, Symbol}) = named_dropdims(A, (s,))
+@inline named_dropdims(A, s::Union{Int, Symbol}) = named_dropdims(A, (s,))
 
-function named_dropdims(A, dims::Tuple{Vararg{Symbol}})
+@inline function named_dropdims(A, dims::Tuple{Vararg{Symbol}})
     L = getnames(A)
     maybe = ntuple(d -> Base.sym_in(L[d], dims) ? d : nothing, ndims(A))
     named_dropdims(A, filter(d -> d isa Int, maybe))
 end
 
-function named_dropdims(A, dims::Tuple{Vararg{Int}})
+@inline function named_dropdims(A, dims::Tuple{Vararg{Int}})
     data = dropdims(nameless(A); dims=dims)
     newL = NamedDims.remaining_dimnames_after_dropping(getnames(A), dims)
     NamedDimsArray(data, newL)
@@ -38,6 +46,32 @@ end
 #     L = remaining_dimnames_after_dropping(names(nda), numerical_dims)
 #     return NamedDimsArray{L}(data)
 # end
+
+#=
+# dropdims is slow!
+
+using NamedDims
+nda = NamedDimsArray(zeros(Float32, 4,1,4), (:a, :_, :c))
+@btime (() -> dropdims($(parent(nda)), dims=2))() # 523.921 ns (9 allocations: 224 bytes)
+
+@btime NamedDims.remaining_dimnames_after_dropping((:a, :b, :c), 2) # 1.420 ns
+
+@btime (() -> dropdims($(nda), dims=2))() # 7.441 μs (18 allocations: 672 bytes)
+@btime (() -> dropdims($(nda), dims=:_))() # 7.469 μs (18 allocations: 672 bytes)
+
+@code_warntype (x -> dropdims(x, dims=:_))(nda)
+
+using NamedPlus
+@btime (() -> dropdims($(nda), dims=2))() # 7.518 μs (18 allocations: 672 bytes)
+@btime (() -> dropdims($(nda)))()         # 7.902 μs (20 allocations: 704 bytes)
+
+@code_warntype (x -> NamedPlus.named_dropdims(x, (:_,)))(nda)
+
+# selectdim is not:
+
+@btime (() -> selectdim(nda, 1, 2))()  #  248.238 ns (5 allocations: 144 bytes)
+@btime (() -> selectdim(nda, :a, 2))() #  244.107 ns (5 allocations: 144 bytes)
+=#
 
 #################### SPLIT / COMBINE ####################
 
