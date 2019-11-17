@@ -29,8 +29,16 @@ export prime
 include("mul.jl")
 export mul, *ᵃ
 
-# include("plots.jl")
-
 include("show.jl")
+
+using Requires
+@init @require TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2" begin
+    include("contract.jl")
+    export contract
+end
+
+@init @require AxisRanges = "7d985058-612f-5500-9f06-de9955ae0899" begin
+    include("plots.jl")
+end
 
 end # module

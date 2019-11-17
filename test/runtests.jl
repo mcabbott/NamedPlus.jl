@@ -309,6 +309,37 @@ end
 
 end
 #=
+# These require https://github.com/invenia/NamedDims.jl/pull/79
+@testset "contract matrices" begin
+
+    ab = rand(Int8, a=2, b=2)
+    bc = rand(Int8, b=2, c=2)
+    ca = rand(Int8, c=2, a=2)
+    aa = rename(bc, :b => :a, :c => :a)
+
+    @test contract(ab, bc) == ab * bc
+    @test contract(ab', bc') == ab * bc
+    @test contract(ab, ca) == ab' * ca'
+    contract(ab, ab')
+    @test_throws Exception contract(ab, aa)
+
+    @test contract(ab, ab, :a) == ab' * ab
+    @test contract(ab, ab, :b) == ab * ab'
+    @test_throws Exception contract(ab, aa, :a)
+
+    a = rand(Int8, a=2)
+
+    contract(a, a) == a' * a
+    contract(a, ca) == ca * a
+    contract(a, ab) == ab' * a
+    contract(a, bc) == outer(a, bc)
+    @test_throws Exception contract(a, aa)
+
+
+end
+=#
+
+#=
 @info "Done with own tests, now running those of NamedDims.jl to check that rampant piracy hasn't sunk anything important"
 # but now two reshape test will fail.
 @testset "test from NamedDims" begin
