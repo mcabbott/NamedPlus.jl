@@ -39,12 +39,17 @@ g *ᵃ m == (m *ᵃ g)'
 
 using TensorOperations                   # named inputs re-arranged via Strided
 @named @tensor p[j,i′] := m[i,j] * z[i,i′]
-contract(m, prime(t, :i))                # shared index :j, leaving (:i, :k, :i′)
+contract(m, t)                           # shared indices i & j, leaving only k
 ```
 
 Some other bits have moved to [AxisRanges.jl](https://github.com/mcabbott/AxisRanges.jl).
-Which the macro knows about, e.g. `@named [n^i for n in 1:2:20, i in 1:3]` has ranges,
-if both packages are loaded.
+If both packages are loaded:
+
+```julia
+using NamedPlus, AxisRanges, Plots
+@named [n^i for n in 1:2:40, i in 2:4]   # has custom ranges
+scatter(ans, yaxis=:log10)
+```
 
 Compared to [Pytorch](https://pytorch.org/docs/stable/named_tensor.html)'s new named tensors: 
 

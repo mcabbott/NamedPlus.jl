@@ -1,3 +1,4 @@
+using .AxisRanges
 using RecipesBase
 
 const RangeVec = Union{RangeArray{<:Any,1}, NamedDimsArray{<:Any,<:Any,1,<:RangeArray}}
