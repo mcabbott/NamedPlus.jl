@@ -19,22 +19,54 @@ end
 
 #################### DROPDIMS ####################
 
-# Override the defn in NamedDims, with the goal of dropping all matches of a symbol.
+"""
+    dropdims(A) = dropdims(A; dims = :_)
+
+If no `dims` are specified, dropdims will drop all dimensions with name `:_`,
+and will give an error if any of these are not of length 1.
+If there are no dimensions of this name, it will do nothing.
+
+```
+julia> A = align(ones(b=2, d=4), (:a, :b, :c, :d));
+
+julia> names(A)
+(:_, :b, :_, :d)
+
+julia> size(A)
+(1, 2, 1, 4)
+
+julia> names(dropdims(A))
+(:b, :d)
+
+julia> size(dropdims(A))
+(2, 4)
+
+julia> dropdims(dropdims(A)) === dropdims(A)
+true
+```
+"""
+Base.dropdims
 
 for N=1:10
+    # More specific than the defn in NamedDims
     @eval Base.dropdims(A::NamedDimsArray{L,T,$N}; dims = :_) where {L,T} =
         named_dropdims(A, dims)
 end
 
-@inline named_dropdims(A, s::Union{Int, Symbol}) = named_dropdims(A, (s,))
-
-@inline function named_dropdims(A, dims::Tuple{Vararg{Symbol}})
-    L = getnames(A)
-    maybe = ntuple(d -> Base.sym_in(L[d], dims) ? d : nothing, ndims(A))
-    named_dropdims(A, filter(d -> d isa Int, maybe))
+function named_dropdims(A, dims)
+    if dims === :_ || dims === (:_,)
+        L = getnames(A)
+        maybe = ntuple(d -> L[d] === :_ ? d : nothing, ndims(A))
+        named_dropdims(A, filter(d -> d isa Int, maybe))
+    else
+        num_dims = NamedDims.dim(A, dims)
+        named_dropdims(A, num_dims)
+    end
 end
 
-@inline function named_dropdims(A, dims::Tuple{Vararg{Int}})
+named_dropdims(A, ::Tuple{}) = A # since filter may give empty set
+
+function named_dropdims(A, dims::Tuple{Vararg{Int}})
     data = dropdims(nameless(A); dims=dims)
     newL = NamedDims.remaining_dimnames_after_dropping(getnames(A), dims)
     NamedDimsArray(data, newL)
