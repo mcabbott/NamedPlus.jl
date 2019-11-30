@@ -351,6 +351,23 @@ end
 end
 =#
 
+using Zygote, ForwardDiff
+const Zgrad = Zygote.gradient
+const Fgrad = ForwardDiff.gradient
+
+@testset "contract gradient" begin
+
+    bc = rand(Float32, b=2, c=3)
+    c = randn(Float32, c=3)
+    c′ = randn(Float32, c=3)
+    bcd = rand(Float32, b=2, c=3, d=4)
+
+    @test Zgrad(x -> contract(x,c′), c)[1] ≈ Fgrad(x -> contract(x,c′), c)
+    @test Zgrad(x -> contract(x,x), c)[1] ≈ Fgrad(x -> contract(x,x), c)
+
+    @test Zgrad(x -> sum(sin,contract(bcd,x)), bc)[1] ≈ Fgrad(x -> sum(sin,contract(bcd,x)), bc)
+
+end
 #=
 @info "Done with own tests, now running those of NamedDims.jl to check that rampant piracy hasn't sunk anything important"
 # but now two reshape test will fail.
