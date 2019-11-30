@@ -15,6 +15,7 @@ end
 ones(i=1, j=4) .+ rand(Int8, i=3)        # base piracy, but convenient.
 a_z = named(rand(4,1,1,2), :a, .., :z)   # using EllipsisNotation
 dropdims(a_z)                            # defaults to :_, and kills all of them.
+transpose(a_z, :a, :z)                   # permutes (4,2,3,1)
 
 t = split(g, :n => (j=4, k=5))           # just reshape, new size (4,5,3)
 join(t, (:i, :k) => :χ)                  # copy if non-adjacent, size (4,15)

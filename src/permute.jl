@@ -138,6 +138,23 @@ See also `prod!ᵃ`, and `*ᵃ`.
 sum!ᵃ(A::NamedDimsArray, B::NamedDimsArray) = sum!(A, align(B, getnames(A)))
 prod!ᵃ(A::NamedDimsArray, B::NamedDimsArray) = prod!(A, align(B, getnames(A)))
 
+#################### TRANSPOSE ####################
+
+"""
+    transpose(A, :i, :j)
+
+Lazy permutation of dimensions, exchanging `:i` and `:j` while leaving others alone.
+"""
+Base.transpose(A::NamedUnion, s1::Symbol, s2::Symbol) = transpose(A, (s1, s2))
+
+function Base.transpose(A::NamedUnion, sy::Tuple{Symbol, Symbol})
+    L = getnames(A)
+    d1, d2 = NamedDims.dim(L, sy)
+    data = TransmuteDims._transpose(nameless(A), (d1, d2))
+    newL = ntuple(d -> d==d1 ? L[d2] : d==d2 ? L[d1] : L[d], ndims(A))
+    NamedDimsArray(data, newL)
+end
+
 #################### CANONICALISE ####################
 
 """

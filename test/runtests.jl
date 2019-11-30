@@ -220,6 +220,14 @@ end
     @test parent(range(i=10)) isa Base.OneTo
     @test dimnames(range(i=3:4)) == (:i,)
 
+#=
+# These require https://github.com/invenia/NamedDims.jl/pull/79
+    # transpose
+    @test transpose(m, :i, :j) == m'
+    @test transpose(t, :i, :j) == permutedims(t, (2,1,3))
+    @test transpose(t, (:j, :i)) == permutedims(t, (2,1,3))
+    @test transpose(t, :i, :k) == permutedims(t, (3,2,1))
+=#
 end
 #=
 # These require https://github.com/invenia/NamedDims.jl/pull/79
