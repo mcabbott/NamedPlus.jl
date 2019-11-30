@@ -11,7 +11,22 @@ This differs from `NamedDimsArray(A, names)` in that
 it allows `..` to fill in as many wildcards as needed.
 (And it saves typing nine letters and two brackets.)
 
-To use `..` you need either `using IntervalSets` or `using EllipsisNotation`.
+To use `..` you need either IntervalSets or EllipsisNotation.
+```
+julia> named(fill(π, 1,1), :α, :β)
+1×1 NamedDimsArray(::Array{Irrational{:π},2}, (:α, :β)):
+      → :β
+↓ :α  π
+
+julia> using EllipsisNotation
+
+julia> named(ones(2,3,1,1), :a, :b, .., :z)
+2×3×1×1 NamedDimsArray(::Array{Float64,4}, (:a, :b, :_, :z)):
+[:, :, 1, 1] =
+      → :b
+↓ :a  1.0  1.0  1.0
+      1.0  1.0  1.0
+```
 """
 named(A::AbstractArray, names::Tuple) = named(A, names...)
 named(A::AbstractArray, B::NamedUnion) = named(A, names(B))
@@ -31,24 +46,13 @@ function named(A::AbstractArray, names::Union{Symbol, Dots}...)
     late = ndims(A) - length(names) + sum(tup) + 1
     off = late - sum(tup) - 1
 
-
-# @show sum(tup) early late off
-# i j .. k
-# early = 2
-# late = 7
-# off = 3
-# 1 2 3 4 5 6 7
-# i j         k
-
     final = ntuple(ndims(A)) do d
         d <= early && return names[d]
         d >= late && return names[d - off]
         return :_
     end
 
-# @show final
     late > early || @warn "not all names in $names will be used in output $final"
-
     NamedDimsArray(A, final)
 end
 
@@ -61,7 +65,19 @@ zero_doc = """
 
 These are piratically overloaded to make `NamedDimsArray`s.
 The zero-dimensional methods like `fill(3)` should stil work fine.
-See also `rand(Float64; i=10)` etc.
+See also `rand(Float64; i=10)` and `range(; i=10)`.
+```
+julia> fill(π, α=1, β=1)
+1×1 NamedDimsArray(::Array{Irrational{:π},2}, (:α, :β)):
+      → :β
+↓ :α  π
+
+julia> zeros(ComplexF64, r=2, c=3)
+2×3 NamedDimsArray(::Array{Complex{Float64},2}, (:r, :c)):
+      → :c
+↓ :r  0.0+0.0im  0.0+0.0im  0.0+0.0im
+      0.0+0.0im  0.0+0.0im  0.0+0.0im
+```
 """
 @doc zero_doc
 Base.zeros(; kw...) = zeros(Float64; kw...)
@@ -127,6 +143,13 @@ end
 
 Keyword overload for `rand` needs a type, otherwise too piratical.
 See also `zeros(; c=3, d=4)`, which works with or without the type.
+```
+julia> rand(Int8, a=2, b=4)
+2×4 NamedDimsArray(::Array{Int8,2}, (:a, :b)):
+      → :b
+↓ :a   32   21   87  105
+      -42  -32  -35   33
+```
 """
 function Base.rand(T::Type{Tn}; kw...) where {Tn<:Number}
     if length(kw) >= 1
@@ -169,6 +192,13 @@ _ensure_range(r) = error("not sure what to do with $r, expected an integer or a 
     outer(x, y) = outer(*, x, y)
 
 This inserts enough new dimensions, then broadcasts `x .* y′`.
+```
+julia> outer(ones(β=2), rand(Int8, δ=4))
+2×4 NamedDimsArray(::Array{Float64,2}, (:β, :δ)):
+      → :δ
+↓ :β  116.0  61.0  106.0  -77.0
+      116.0  61.0  106.0  -77.0
+```
 """
 outer(xs::AbstractArray...) = outer(*, xs...)
 
@@ -190,17 +220,32 @@ const newaxis = [CartesianIndex()]
     diagonal(m)
 
 `diagonal` is to `Diagonal` about as `transpose` is to `Transpose`.
-
 On an ordinary Vector there is no distinction, but on a NamedDimsArray it returns
 `NamedDimsArray{T,2,Diagonal}` instead of `Diagonal{T,NamedDimsArray}`.
 This has two independent names, by default the same as that of the vector,
 but writing `diagonal(m, names)` they can be set.
+```
+julia> diagonal(ones(i=3))
+3×3 NamedDimsArray(::Diagonal{Float64,Array{Float64,1}}, (:i, :i)):
+      → :i
+↓ :i  1.0   ⋅    ⋅
+       ⋅   1.0   ⋅
+       ⋅    ⋅   1.0
+
+julia> diagonal(11:13, :i, :i′)
+3×3 NamedDimsArray(::Diagonal{Int64,UnitRange{Int64}}, (:i, :i′)):
+      → :i′
+↓ :i  11   ⋅   ⋅
+       ⋅  12   ⋅
+       ⋅   ⋅  13
+```
 """
 diagonal(x) = Diagonal(x)
-diagonal(x::NamedDimsArray{L,T,1}) where {L,T} = NamedDimsArray{(L[1],L[1])}(Diagonal(x.data))
-diagonal(x::NamedDimsArray{L,T,2}) where {L,T} = NamedDimsArray{L}(Diagonal(x.data))
+diagonal(x::NamedDimsArray{L,T,1}) where {L,T} = NamedDimsArray{(L[1],L[1])}(Diagonal(parent(x)))
+diagonal(x::NamedDimsArray{L,T,2}) where {L,T} = NamedDimsArray{L}(Diagonal(parent(x)))
 
-diagonal(x::AbstractArray, s::Symbol) = diagonal(x, (s,s))
-diagonal(x::AbstractArray, tup::Tuple{Symbol, Symbol}) = NamedDimsArray{tup}(Diagonal(x))
+diagonal(x::AbstractArray, s::Symbol) = diagonal(nameless(x), (s,s))
+diagonal(x::AbstractArray, s1::Symbol, s2::Symbol) = diagonal(nameless(x), (s1,s2))
+diagonal(x::AbstractArray, tup::Tuple{Symbol, Symbol}) = NamedDimsArray{tup}(Diagonal(nameless(x)))
 
 ####################
