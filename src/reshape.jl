@@ -105,6 +105,16 @@ using NamedPlus
 @btime (() -> selectdim(nda, :a, 2))() #  244.107 ns (5 allocations: 144 bytes)
 =#
 
+function Base._dropdims(A::Transpose{<:Number, <:AbstractVector}, dims::Tuple{Int})
+    dims[1] === 1 && return parent(A)
+    invoke(Base._dropdims, Tuple{AbstractArray, Tuple{Vararg{Int64}}}, A, dims)
+end
+
+function Base._dropdims(A::Adjoint{<:Real, <:AbstractVector}, dims::Tuple{Int})
+    dims[1] === 1 && return parent(A)
+    invoke(Base._dropdims, Tuple{AbstractArray, Tuple{Vararg{Int64}}}, A, dims)
+end
+
 #################### SPLIT / COMBINE ####################
 
 """

@@ -147,6 +147,14 @@ end
     @test size(dropdims(NamedDimsArray(rand(2,1,1), (:a, :_, :_)))) == (2,)
     @test names(dropdims(named(ones(2,2,1,1,2), :a, :b, :_, :_, :c))) == (:a, :b, :c)
 
+    # Test my pirate methods for _dropdims(::Transpose, 1) etc.
+    r3 = rand(3)
+    @test dropdims(r3', dims=1) isa Array
+    @test dropdims(r3', dims=1) === r3
+    @test dropdims(r3 |> transpose, dims=1) === r3
+    @test dropdims(rand(1)', dims=2) isa Base.ReshapedArray # unchanged
+    @test names(dropdims(v')) == (:j,) # with default dims=:_
+
 end
 @testset "named int" begin
 
