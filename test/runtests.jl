@@ -25,6 +25,10 @@ z = NamedDimsArray(rand(26), :z)
     @test_skip ranges(@named [x^2 for x in 1:2:10]) == (1:2:10,)
     @test_skip ranges(@named [x^i for x in 1:2:10, i in 1:3]) == (1:2:10, 1:3)
 
+    # printing
+    m4 = named(Int8[1 2; 3 4], :i, :j)
+    @test repr(m4) == "named(Int8[1 2; 3 4], :i, :j)"
+
 end
 @testset "align" begin
 

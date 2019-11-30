@@ -18,3 +18,8 @@ function Base.print_matrix(io::IO, A::NamedUnion)
     Base.print_matrix(ioc, parent(A), s1) # s1c messes up the indent!
 end
 
+function Base.repr(A::NamedDimsArray)
+    s = repr(parent(A))
+    n = join(QuoteNode.(getnames(A)), ", ")
+    string("named(", s, ", ", n, ")")
+end
