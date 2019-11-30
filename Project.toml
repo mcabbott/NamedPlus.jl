@@ -18,17 +18,18 @@ TupleTools = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
 ZygoteRules = "700de1a5-db45-46bc-99cf-38207098b444"
 
 [compat]
-NamedDims = "0.2.11"
+NamedDims = "0.2.12"
 julia = "1"
 
 [extras]
-SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
-Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+#SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+#Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Strided = "5e0ebb24-38b0-5f93-81fe-25c709ecae67"
 TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
+#Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [targets]
-test = ["Test", "TensorOperations", "SparseArrays", "Tracker", "Statistics", "Zygote"]
+test = ["Test", "ForwardDiff", "TensorOperations", "Zygote"]
