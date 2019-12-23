@@ -18,8 +18,10 @@ function Base.print_matrix(io::IO, A::NamedUnion)
     Base.print_matrix(ioc, parent(A), s1) # s1c messes up the indent!
 end
 
-function Base.repr(A::NamedDimsArray)
-    s = repr(parent(A))
+# Mostly for repr(A), which apparently it's bad practice to overload:
+function Base.show(io::IO, A::NamedDimsArray)
+    print(io, "named(")
+    show(io, parent(A))
     n = join(QuoteNode.(getnames(A)), ", ")
-    string("named(", s, ", ", n, ")")
+    print(io, ", ", n, ")")
 end
