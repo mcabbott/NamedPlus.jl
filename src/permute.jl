@@ -76,6 +76,7 @@ _trim_leading_zeros() = ()
 # @btime _trim_trailing_zeros((1,2,0,3,0)) # 1μs
 
 # https://github.com/JuliaLang/julia/pull/32968 -- also in Compat@3.1
+using Compat
 # Base.filter(f, xs::Tuple) = Base.afoldl((ys, x) -> f(x) ? (ys..., x) : ys, (), xs...)
 # Base.filter(f, t::Base.Any16) = Tuple(filter(f, collect(t)))
 
