@@ -55,13 +55,22 @@ for f in [:abs, :abs2, :sign, :string, :Int, :float, :-, :OneTo]
     @eval Base.$f(x::NamedInt) = Base.$f(x.val)
 end
 for (T,S) in [(:NamedInt, :Integer), (:Integer, :NamedInt), (:NamedInt, :NamedInt)]
-    for op in [:(==), :<, :>, :>=, :<=]
+    for op in [:<, :>, :>=, :<=]
         @eval Base.$op(x::$T, y::$S) = $op(value(x), value(y))
     end
 end
 Base.convert(::Type{T}, x::NamedInt) where {T<:Number} = convert(T, x.val)
 Base.promote_rule(::Type{<:NamedInt}, ::Type{T}) where {T<:Number} = T
 
+function Base.:(==)(x::NamedInt{Lx}, y::NamedInt{Ly}) where {Lx, Ly}
+    if isequal(x.val, y.val)
+        Lx === :_ || Ly == :_ && return true
+        Lx === Ly || @error "mismatched names on NamedInt($Lx=$(x.val)) & NamedInt($Ly=$(y.val))"
+        true
+    else
+        false
+    end
+end
 
 #################### USING IT ####################
 
@@ -113,6 +122,11 @@ Base.similar(A::AbstractArray, T::Type, i::Integer, ni::NamedInt, rest::Integer.
 Base.similar(A::AbstractArray, T::Type, ni::NamedInt, ni′::NamedInt, rest::Integer...) = named_similar(A, T, ni, ni′, rest...)
 
 named_similar(A, T, sz::Integer...) = NamedDimsArray(similar(nameless(A), T, value.(sz)...), name.(sz))
+
+(::Type{Array{T}})(::UndefInitializer, ni::NamedInt, rest::Integer...) where {T} = named_new(T, ni, rest...)
+(::Type{Array{T}})(::UndefInitializer, i::Integer, ni::NamedInt, rest::Integer...) where {T} = named_new(T, i, ni, rest...)
+(::Type{Array{T}})(::UndefInitializer, ni::NamedInt, ni′::NamedInt, rest::Integer...) where {T} = named_new(T, ni, ni′, rest...)
+named_new(::Type{T}, sz::Integer...) where {T} = NamedDimsArray(Array{T}(undef, value.(sz)...), name.(sz))
 
 #################### RESHAPE ####################
 

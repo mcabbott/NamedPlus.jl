@@ -184,6 +184,9 @@ end
     @test dimnames(reshape(rand(6), ni, nj)) == (:i, :j)
     @test dimnames(reshape(rand(1,6,1), nj, :)) == (:j, :_)
 
+    # Array(undef...)
+    @test dimnames(Array{Int}(undef, ni, 1, nj)) == (:i, :_, :j)
+
 end
 @testset "base piracy" begin
 

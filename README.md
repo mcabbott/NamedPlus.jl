@@ -23,8 +23,9 @@ rename(m, :i => :z)                      # rename just i
 
 d,k = size(m); @show d                   # NamedInt, which exists for:
 z = zeros(d,d')                          # ones, fill, etc, plus ranges:
-z .= [sqrt(i) for i in 1:d, i′ in 1:d']  # comprehensions have names
-reshape(g, k,:,d) .+ g[end, d]
+z .= [sqrt(i) for i in 1:d, i′ in 1:d']  # comprehensions propagate names
+reshape(g, k,:,d) .+ g[end, d]           # reshape propagate via sizes, as does:
+@einsum ζ[i,k] := m[i,j] * z[i,k]        # using Einsum
 ```
 
 Some automatic re-ordering of dimensions:
