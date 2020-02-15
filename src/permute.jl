@@ -9,14 +9,24 @@ This is a lazy generalised `permutedims`. It will do nothing if the names match 
 or insert `Transpose` etc. if they need to be permuted.
 Instead of providing `names`, you can also provide another array `B` whose named should be used.
 
-If there are extra dimensions in `names` not found in `A`, then trivial dimensions are inserted.
-And if there are dimensions of `A` not found in `names`, these are put at the end, so that the
-first few dimensions match `names`. This ensures that the result can be broadcast with `B`.
+If there are extra dimensions in target `names` not found in `A`,
+then trivial dimensions may be inserted.
+And if there are dimensions of `A` not found in target `names`, t
+hese are put at the end, so that the first few dimensions match `names`.
+This ensures that the result can be broadcast with `B`.
 
 It should error if wildcards in either set of names make this process ambiguous.
 
 Before performing these steps, is calls `canonise(A)` which unwraps any lazy wrappers,
 so that for instance the trivial dimension of `transpose(`named vector`)` is dropped.
+
+```
+julia> align(named(ones(3), :a), (:b, :a)) |> summary
+"1×3 named(::Transpose{Float64,Array{Float64,1}}, (:_, :a))"
+
+julia> align(named(ones(3,4), :a, :b), (:b, :c, :a)) |> summary
+"4×1×3 named(transmute(::Array{Float64,2}, (2, 0, 1)), (:b, :_, :a))"
+```
 """
 align(A::NamedUnion, ::NamedDimsArray{L}) where {L} = align(A, L)
 
@@ -24,12 +34,12 @@ function align(A::NamedUnion, target::Tuple{Vararg{Symbol}})
     B = canonise(A)
     namesB = getnames(B)
 
-    allunique(namesB) || error("input must have unique names, got $namesB" *
-        (getnames(A)==getnames(B) ? "" : " after canonicalisation"))
+    allunique(namesB) || throw(ArgumentError("input must have unique names, got $namesB" *
+        (getnames(A)==getnames(B) ? "" : " after canonicalisation")))
     # Base.sym_in(:_, target) && Base.sym_in(:_, namesB) && error(
     #     "if the input has wildcards, and the target has either wildcards or new symbols, then result is always ambigous. Got $namesB and $target") # wildcards in B get pushed to end anyway, and then it comes here
-    Base.sym_in(:_, namesB) && error("input must not have wildcards, got $namesB" *
-        (getnames(A)==getnames(B) ? "" : " after canonicalisation"))
+    Base.sym_in(:_, namesB) && throw(ArgumentError("input must not have wildcards, got $namesB" *
+        (getnames(A)==getnames(B) ? "" : " after canonicalisation")))
 
     perm = map(n -> NamedDims.dim_noerror(namesB, n), target)
 
@@ -38,7 +48,7 @@ function align(A::NamedUnion, target::Tuple{Vararg{Symbol}})
 
     elseif !NamedDims.tuple_issubset(namesB, target)
         # Some dimensions of B aren't in the target, add them to the end
-        Base.sym_in(:_, target) && error("wildcard in target $target means the result is ambigous")
+        Base.sym_in(:_, target) && throw(ArgumentError("wildcard in target $target means the result is ambigous"))
 
         extras = filter(n -> n ∉ target, namesB)
         return align(B, (target..., extras...))
@@ -75,11 +85,7 @@ _trim_leading_zeros(x, ys...) = x==0 ? _trim_leading_zeros(ys...) : (x, ys...)
 _trim_leading_zeros() = ()
 # @btime _trim_trailing_zeros((1,2,0,3,0)) # 1μs
 
-# https://github.com/JuliaLang/julia/pull/32968 -- also in Compat@3.1
-using Compat
-# Base.filter(f, xs::Tuple) = Base.afoldl((ys, x) -> f(x) ? (ys..., x) : ys, (), xs...)
-# Base.filter(f, t::Base.Any16) = Tuple(filter(f, collect(t)))
-
+using Compat # v3.1, for filter
 
 #################### PERMUTE ####################
 

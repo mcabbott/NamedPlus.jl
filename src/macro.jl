@@ -88,7 +88,7 @@ _named(input_ex, mod) =
     end
 
 quotenodes(ijk::Vector) = map(quotenodes, ijk)
-quotenodes(s::Symbol) = QuoteNode(s)
+quotenodes(s::Symbol) = s == :(..) ? :(EllipsisNotation.Ellipsis()) : QuoteNode(s)
 quotenodes(q::QuoteNode) = q
 
 function ex_nameless(A, B, ijk)
@@ -98,13 +98,13 @@ end
 
 function ex_addname(A, ijk, B)
     stup = :( ($(quotenodes(ijk)...),) )
-    :( $A = NamedDims.NamedDimsArray($B, $stup) )
+    :( $A = NamedPlus.named($B, $stup) )
 end
 
 function ex_rename(Z, xyz, A, ijk)
     stup = :( ($(quotenodes(ijk)...),) )
     stup2 = :( ($(map(QuoteNode,xyz)...),) )
-    :( $Z = NamedDims.NamedDimsArray(NamedPlus.nameless($A, $stup), $stup2) )
+    :( $Z = NamedPlus.named(NamedPlus.nameless($A, $stup), $stup2) )
 end
 
 ##### Comprehensions #####
@@ -125,15 +125,34 @@ end
 function ex_comprehension(ex, val, ind1, ran1, ind2, ran2, mod)
     name1 = QuoteNode(ind1)
     name2 = QuoteNode(ind2)
-    out = :( NamedDims.NamedDimsArray{($name1,$name2)}($ex) )
+    @gensym A
+    out = :( NamedDims.NamedDimsArray{($name1,$name2)}($A) )
 
-    if (@capture(ran1, start_:stop_) && start != 1) || @capture(ran1, start_:step_:stop_) ||
-        (@capture(ran2, start_:stop_) && start != 1) || @capture(ran2, start_:step_:stop_)
+    needranges = false
+    if (@capture(ran1, start_:stop_) && start != 1) || @capture(ran1, start_:step_:stop_)
+        range1 = ran1
+        needranges = true
+    else
+        range1 = :(axes($A, 1))
+    end
+
+    if (@capture(ran2, start_:stop_) && start != 1) || @capture(ran2, start_:step_:stop_)
+        range2 = ran2
+        needranges = true
+    else
+        range2 = :(axes($A, 2))
+    end
+
+    if needranges
         return quote
-            isdefined($mod, :AxisRanges) ? RangeArray($out, ($ran1,$ran2)) : $out
+            $A = $ex
+            isdefined($mod, :AxisRanges) ? RangeArray($out, ($range1,$range2)) : $out
         end
     else
-        return out
+        return quote
+            $A = $ex
+            $out
+        end
     end
 end
 
@@ -153,7 +172,7 @@ function ex_cast(lhs, ind, rhs, mod)
         end
         x
     end
-    return :( $lhs = NamedDims.NamedDimsArray($newright, $tup) )
+    return :( $lhs = NamedPlus.named($newright, $tup) )
 end
 
 function ex_incast(lhs, ind, rhs, mod)
