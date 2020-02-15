@@ -44,7 +44,6 @@ align(m, (:j, :k, :i))                   # lazy generalised permutedims
 align(m, t) .+ t                         # or to manually fix things up
 
 align_sum!(Int.(m), t)                   # reduce (:j, :k, :i) into (:i, :j)
-
 ```
 
 Including for matrix multiplication:
@@ -55,6 +54,9 @@ g *ᵃ m == (m *ᵃ g)'
 using TensorOperations                   # named inputs re-arranged via Strided
 @named @tensor p[j,i′] := m[i,j] * z[i,i′]
 contract(m, t)                           # shared indices i & j, leaving only k
+
+using Zygote                             # contract defines a gradient
+gradient(m -> sum(contract(m,t)[1]), m)[1]
 ```
 
 Some other bits have moved to [AxisRanges.jl](https://github.com/mcabbott/AxisRanges.jl).
