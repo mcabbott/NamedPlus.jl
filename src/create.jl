@@ -1,8 +1,8 @@
 
 #################### NAMED ####################
 
-import IntervalSets, EllipsisNotation
-const Dots = Union{typeof(IntervalSets.:(..)), EllipsisNotation.Ellipsis}
+import EllipsisNotation
+const Dots = EllipsisNotation.Ellipsis # now identical to IntervalSets's.
 
 """
     A′ = named(A, names...)
