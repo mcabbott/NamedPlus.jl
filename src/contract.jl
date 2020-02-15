@@ -24,7 +24,7 @@ if there are none then it is equivalent to `outer(A,B)`.
 To multiply by a number `γ`, write it first. To conjugate all elements of one matrix,
 write `adjoint(A)`, which thanks to some piracy is no longer an error.
 """
-contract(A::NamedDimsArray, B::NamedDimsArray, s::Symbol) = contract(A, B, Val((s,)))
+contract(A::NamedDimsArray, B::NamedDimsArray, sys::Symbol...) = contract(One(), A, B, Val(sys))
 
 @generated function contract(A::NamedDimsArray{LA}, B::NamedDimsArray{LB}) where {LA,LB}
     s = filter(n -> Base.sym_in(n, LB), LA)
@@ -36,11 +36,15 @@ end
     :(contract(γ, A, B, Val($s)))
 end
 
-@generated function contract(γ::Number, A::NamedDimsArray{LA,TA,NA}, B::NamedDimsArray{LB,TB,NB}, ::Val{s}) where {LA,LB,TA,TB,NA,NB,s}
-    cindA = NamedDims.dim(LA, s)
+@generated function contract(γ::Number, A::NamedDimsArray{LA,TA,NA}, B::NamedDimsArray{LB,TB,NB}, ::Val{cs}) where {LA,LB,TA,TB,NA,NB,cs}
+    cindA = NamedDims.dim(LA, cs)
     oindA = Tuple(setdiff(1:NA, cindA))
-    cindB = NamedDims.dim(LB, s)
+    cindB = NamedDims.dim(LB, cs)
     oindB = Tuple(setdiff(1:NB, cindB))
+    for s in cs
+        count(isequal(s), LA) == 1 || throw(ArgumentError("contraction index $s must appear exactly once in names(A) = $LA"))
+        count(isequal(s), LB) == 1 || throw(ArgumentError("contraction index $s must appear exactly once in names(B) = $LB"))
+    end
 
     indCinoAB = Tuple(vcat(1:length(oindA), length(oindA) .+ (1:length(oindB))))
     TC = Base.promote_type(TA,TB)

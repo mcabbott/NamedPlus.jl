@@ -328,7 +328,6 @@ end
     end
 
 end
-#=
 @testset "contract matrices" begin
 
     ab = rand(Int8, a=2, b=2)
@@ -340,11 +339,11 @@ end
     @test contract(ab', bc') == ab * bc
     @test contract(ab, ca) == ab' * ca'
     contract(ab, ab')
-    @test_throws Exception contract(ab, aa)
+    @test_throws ArgumentError contract(ab, aa)
 
     @test contract(ab, ab, :a) == ab' * ab
     @test contract(ab, ab, :b) == ab * ab'
-    @test_throws Exception contract(ab, aa, :a)
+    @test_throws ArgumentError contract(ab, aa, :a)
 
     a = rand(Int8, a=2)
 
@@ -352,10 +351,9 @@ end
     contract(a, ca) == ca * a
     contract(a, ab) == ab' * a
     contract(a, bc) == outer(a, bc)
-    @test_throws Exception contract(a, aa)
+    @test_throws ArgumentError contract(a, aa)
 
 end
-=#
 
 using Zygote, ForwardDiff
 const Zgrad = Zygote.gradient

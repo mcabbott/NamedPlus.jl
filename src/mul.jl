@@ -7,7 +7,12 @@
 
 Matrix multiplication for two `NamedDimsArray`s, which automatically transposes as required.
 If given a name `s`, it arranges to sum over this index.
-If not, it looks for a name shared between the two. The infix form is typed `*\\^a<tab>`.
+If not, it looks for exactly one name shared between the two.
+
+The infix form is typed `*\\^a<tab>`.
+
+See also the more general `contract(A, B, s)` for higher-rank tensors,
+for which you need `using TensorOperations`.
 """
 function mul(A::NamedUnion, B::NamedUnion)
     namesA, namesB = getnames(A), getnames(B)
