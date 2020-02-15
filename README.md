@@ -4,7 +4,11 @@
 
 This package exists to experiment with the arrays provided by 
 [NamedDims.jl](https://github.com/invenia/NamedDims.jl). 
-Here's what works:
+While that package is fairly minimal (and focused on providing a type with great performance), 
+this one defines lots of useful functions. Some of them are only defined when other packages 
+they need are loaded.
+
+Here's what's on the menu:
 
 Some convenient ways add names:
 ```julia
@@ -65,7 +69,7 @@ If both packages are loaded:
 ```julia
 using NamedPlus, AxisRanges, Plots
 @named [n^i for n in 1:2:40, i in 2:4]   # has custom ranges
-scatter(ans, yaxis=:log10)
+scatter(ans, yaxis=:log10)               # labels axes & series
 ```
 
 Compared to Pytorch's [new named tensors](https://pytorch.org/docs/stable/named_tensor.html):
