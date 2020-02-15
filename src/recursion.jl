@@ -19,7 +19,7 @@ wraps(AT) = [
 #################### RECURSIVE UNWRAPPING ####################
 
 using LinearAlgebra
-using TransmuteDims
+using TransmuteDims: TransmutedDimsArray
 
 names_doc = """
     names(A::NamedDimsArray) -> Tuple

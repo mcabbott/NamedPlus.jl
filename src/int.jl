@@ -72,6 +72,12 @@ function Base.:(==)(x::NamedInt{Lx}, y::NamedInt{Ly}) where {Lx, Ly}
     end
 end
 
+# from base/show.jl:2122
+# dims2string(d) = isempty(d) ? "0-dimensional" :
+#                  length(d) == 1 ? "$(d[1])-element" :
+#                  join(map(string,d), '×')
+Base.dims2string(d::Tuple{NamedInt}) = string(d[1].val, "-element")
+
 #################### USING IT ####################
 
 # Base.size(x::NamedDimsArray{L}) where {L} = map(NamedInt, size(parent(x)), L)

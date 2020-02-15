@@ -74,8 +74,8 @@ end
 @testset "aligned reduction" begin
 
     @test_throws DimensionMismatch sum!(v, m)
-    @test sum!ᵃ(v, m) == sum!(v, m')
-    @test prod!ᵃ(m', t) == prod!(m, t)'
+    @test align_sum!(v, m) == sum!(v, m')
+    @test align_prod!(m', t) == prod!(m, t)'
 
 end
 #=
@@ -223,17 +223,13 @@ end
     @test parent(range(i=10)) isa Base.OneTo
     @test dimnames(range(i=3:4)) == (:i,)
 
-#=
-# These require https://github.com/invenia/NamedDims.jl/pull/79
     # transpose
     @test transpose(m, :i, :j) == m'
     @test transpose(t, :i, :j) == permutedims(t, (2,1,3))
     @test transpose(t, (:j, :i)) == permutedims(t, (2,1,3))
     @test transpose(t, :i, :k) == permutedims(t, (3,2,1))
-=#
+
 end
-#=
-# These require https://github.com/invenia/NamedDims.jl/pull/79
 @testset "matrix mult" begin
 
     ab = rand(Int8, a=2, b=2)
@@ -262,9 +258,10 @@ end
     @test ab *ᵃ bc == ab * bc
 
 end
-=#
+
 
 using LinearAlgebra, TensorOperations, TransmuteDims, EllipsisNotation
+using TransmuteDims: TransmutedDimsArray
 
 @testset "named and .." begin
 
@@ -332,7 +329,6 @@ end
 
 end
 #=
-# These require https://github.com/invenia/NamedDims.jl/pull/79
 @testset "contract matrices" begin
 
     ab = rand(Int8, a=2, b=2)
@@ -357,7 +353,6 @@ end
     contract(a, ab) == ab' * a
     contract(a, bc) == outer(a, bc)
     @test_throws Exception contract(a, aa)
-
 
 end
 =#

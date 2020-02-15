@@ -77,6 +77,13 @@ julia> zeros(ComplexF64, r=2, c=3)
       → :c
 ↓ :r  0.0+0.0im  0.0+0.0im  0.0+0.0im
       0.0+0.0im  0.0+0.0im  0.0+0.0im
+
+julia> using OffsetArrays
+
+julia> zeros(_=1, col=11:17)
+1×7 NamedDimsArray(OffsetArray(::Array{Float64,2}, 1:1, 11:17), (:_, :col)):
+      → :col
+↓ :_  0.0  0.0  0.0  0.0  0.0  0.0  0.0
 ```
 """
 @doc zero_doc

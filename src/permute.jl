@@ -13,7 +13,7 @@ If there are extra dimensions in target `names` not found in `A`,
 then trivial dimensions may be inserted.
 And if there are dimensions of `A` not found in target `names`, t
 hese are put at the end, so that the first few dimensions match `names`.
-This ensures that the result can be broadcast with `B`.
+This ensures that the result can be broadcast with `B`, or `sum!`-ed into `B`.
 
 It should error if wildcards in either set of names make this process ambiguous.
 
@@ -56,7 +56,7 @@ function align(A::NamedUnion, target::Tuple{Vararg{Symbol}})
     elseif (perm == (2,1) || perm == (0,1)) && eltype(A) <: Number
         return transpose(B)
 
-    elseif 0 in perm
+    else
         # Some names in target were not found in B, insert trivial dims
         # C = Transmute{perm}(nameless(B))
         # return NamedDimsArray{target}(C)
@@ -73,10 +73,6 @@ function align(A::NamedUnion, target::Tuple{Vararg{Symbol}})
             C = Transmute{short_perm}(nameless(B))
             return NamedDimsArray{L}(C)
         end
-
-    else
-        C = PermutedDimsArray(nameless(B), perm)
-        return NamedDimsArray{target}(C)
     end
 end
 
@@ -86,6 +82,7 @@ _trim_leading_zeros() = ()
 # @btime _trim_trailing_zeros((1,2,0,3,0)) # 1μs
 
 using Compat # v3.1, for filter
+using TransmuteDims
 
 #################### PERMUTE ####################
 
@@ -137,13 +134,13 @@ end
 #################### REDUCE ####################
 
 """
-    sum!ᵃ(A, B)
+    align_sum!(dst, x) = sum!(dst, align(x, getnames(dst)))
 
 This variant of `sum!` automatically `align`s dimensions by name.
-See also `prod!ᵃ`, and `*ᵃ`.
+See also `align_prod!`, and `*ᵃ`.
 """
-sum!ᵃ(A::NamedDimsArray, B::NamedDimsArray) = sum!(A, align(B, getnames(A)))
-prod!ᵃ(A::NamedDimsArray, B::NamedDimsArray) = prod!(A, align(B, getnames(A)))
+align_sum!(A::NamedDimsArray, B::NamedDimsArray) = sum!(A, align(B, A))
+align_prod!(A::NamedDimsArray, B::NamedDimsArray) = prod!(A, align(B, A))
 
 #################### TRANSPOSE ####################
 

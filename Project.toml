@@ -20,7 +20,9 @@ ZygoteRules = "700de1a5-db45-46bc-99cf-38207098b444"
 
 [compat]
 Compat = "3.1"
-NamedDims = "0.2.12"
+IntervalSets = "0.4" # uses .. from EllipsisNotation
+NamedDims = "0.2.14" # has ==
+TransmuteDims = "0.0.3"
 julia = "1"
 
 [extras]

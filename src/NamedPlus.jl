@@ -16,7 +16,7 @@ include("macro.jl")
 export @named
 
 include("permute.jl")
-export canonise, align, sum!ᵃ, prod!ᵃ
+export canonise, align, align_sum!, align_prod!
 
 include("create.jl")
 export named, diagonal, outer
