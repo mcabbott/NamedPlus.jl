@@ -6,9 +6,7 @@ This package exists to experiment with the arrays provided by
 [NamedDims.jl](https://github.com/invenia/NamedDims.jl). 
 While that package is fairly minimal (and focused on providing a type with great performance), 
 this one defines lots of useful functions. Some of them are only defined when other packages 
-they need are loaded.
-
-Here's what's on the menu:
+they need are loaded. Here's what works in `v0.0.1`:
 
 Some convenient ways add names:
 ```julia
@@ -37,8 +35,9 @@ d,k = size(m); @show d                   # NamedInt, which exists for:
 z = zeros(d,d')                          # ones, fill, etc, plus ranges:
 z .= [sqrt(i) for i in 1:d, i′ in 1:d']  # comprehensions propagate names
 reshape(g, k,:,d) .+ g[end, d]           # reshape propagate via sizes, as does:
+
 using Einsum                             
-@einsum ζ[i,k] := m[i,j] * z[i,k]        # because this overloads Array{}(undef,...)
+@einsum mz[i,k] := m[i,j] * z[i,k]       # because this overloads Array{}(undef,...)
 ```
 
 Some automatic re-ordering of dimensions:
@@ -61,6 +60,11 @@ contract(m, t)                           # shared indices i & j, leaving only k
 
 using Zygote                             # contract defines a gradient
 gradient(m -> sum(contract(m,t)[1]), m)[1]
+
+using OMEinsum
+contract(m, t, z)                        # sum over shared :i, leaving (:j, :k, :i′)
+*ᵇ = batchmul(:k)                        # batch index :k,
+t *ᵇ rename(t, :i => :i')                # sum over shared :j, leaving (:i, :i′, :k)
 ```
 
 Some other bits have moved to [AxisRanges.jl](https://github.com/mcabbott/AxisRanges.jl).

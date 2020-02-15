@@ -260,7 +260,7 @@ end
 end
 
 
-using LinearAlgebra, TensorOperations, TransmuteDims, EllipsisNotation
+using LinearAlgebra, TransmuteDims, EllipsisNotation
 using TransmuteDims: TransmutedDimsArray
 
 @testset "named and .." begin
@@ -311,6 +311,9 @@ end
     @test dimnames(canonise(nts)) == (:a, :b, :c) # permutes names
 
 end
+
+using TensorOperations, OMEinsum
+
 @testset "tensor macro" begin
 
     for f in (identity, transpose, permutedims)
@@ -328,13 +331,15 @@ end
     end
 
 end
-@testset "contract matrices" begin
+@testset "contract arrays" begin
 
     ab = rand(Int8, a=2, b=2)
     bc = rand(Int8, b=2, c=2)
     ca = rand(Int8, c=2, a=2)
+    dc = rand(Int8, d=2, c=2)
     aa = rename(bc, :b => :a, :c => :a)
 
+    # TensorOperations
     @test contract(ab, bc) == ab * bc
     @test contract(ab', bc') == ab * bc
     @test contract(ab, ca) == ab' * ca'
@@ -347,11 +352,18 @@ end
 
     a = rand(Int8, a=2)
 
-    contract(a, a) == a' * a
-    contract(a, ca) == ca * a
-    contract(a, ab) == ab' * a
-    contract(a, bc) == outer(a, bc)
+    @test contract(a, a) == a' * a
+    @test contract(a, ca) == ca * a
+    @test contract(a, ab) == ab' * a
+    @test contract(a, bc) == outer(a, bc)
     @test_throws ArgumentError contract(a, aa)
+
+    # OMEinsum
+    @test getnames(contract(dc, bc, ca, :c)) == (:d, :b, :a)
+
+    abc = rand(Int8, a=2, b=2, c=2)
+    bcd = rand(Int8, b=2, c=2, d=2)
+    @test getnames(batchmul(:b, abc, bcd)) == (:a, :d, :b)
 
 end
 

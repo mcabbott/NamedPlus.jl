@@ -32,9 +32,16 @@ export mul, *ᵃ
 include("show.jl")
 
 using Requires
+
+function contract end
+export contract, batchmul
+
 @init @require TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2" begin
     include("contract.jl")
-    export contract
+end
+
+@init @require OMEinsum = "ebe7aa44-baf0-506c-a96f-8464559b3922" begin
+    include("omeinsum.jl")
 end
 
 @init @require AxisRanges = "7d985058-612f-5500-9f06-de9955ae0899" begin

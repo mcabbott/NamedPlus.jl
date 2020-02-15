@@ -6,7 +6,6 @@ version = "0.0.1"
 [deps]
 Compat = "34da2185-b29b-5c13-b0c7-acf172513d20"
 EllipsisNotation = "da5c29d0-fa7d-589e-88eb-ea29b0a81949"
-IntervalSets = "8197267c-284f-5f27-9208-e0e47529a953"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 NamedDims = "356022a1-0364-5f58-8944-0da4b18d706f"
@@ -21,7 +20,6 @@ ZygoteRules = "700de1a5-db45-46bc-99cf-38207098b444"
 [compat]
 Compat = "3.1"
 EllipsisNotation = "0.4"
-IntervalSets = "0.4"
 MacroTools = "0.5"
 NamedDims = "0.2.14"
 OffsetArrays = "0.11, 1"
@@ -34,10 +32,11 @@ julia = "1"
 
 [extras]
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+OMEinsum = "ebe7aa44-baf0-506c-a96f-8464559b3922"
 Strided = "5e0ebb24-38b0-5f93-81fe-25c709ecae67"
 TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [targets]
-test = ["Test", "ForwardDiff", "TensorOperations", "Zygote"]
+test = ["Test", "ForwardDiff", "OMEinsum", "TensorOperations", "Zygote"]
