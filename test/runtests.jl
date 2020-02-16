@@ -103,8 +103,10 @@ end
 
     @test (@inferred (() -> prime(:a))() ;true)
     @test (@inferred (() -> _prime((:i,:j,:k), Val(1)))() ;true)
-    @test 0 == @allocated (() -> prime(:a))()
-    @test 0 == @allocated (() -> _prime((:i,:j,:k), Val(1)))()
+    if VERSION <= "v1.4-"
+        @test 0 == @allocated (() -> prime(:a))()
+        @test 0 == @allocated (() -> _prime((:i,:j,:k), Val(1)))()
+    end
 
 end
 @testset "split & join" begin
@@ -135,8 +137,10 @@ end
 
     @test (@inferred (() -> _join(:i, :j))() ;true)
     @test (@inferred (() -> _split(_join(:i, :j)))() ;true)
-    @test 0 == @allocated (() -> _join(:i, :j))()
-    @test 0 == @allocated (() -> _split(_join(:i, :j)))()
+    if VERSION <= "v1.4-"
+        @test 0 == @allocated (() -> _join(:i, :j))()
+        @test 0 == @allocated (() -> _split(_join(:i, :j)))()
+    end
 
 end
 @testset "vec, dropdims" begin
@@ -310,6 +314,7 @@ end
 
 end
 
+@info "loading TensorOperations, OMEinsum"
 using TensorOperations, OMEinsum
 
 @testset "tensor macro" begin
@@ -365,23 +370,27 @@ end
 
 end
 
-using Zygote, ForwardDiff
-const Zgrad = Zygote.gradient
-const Fgrad = ForwardDiff.gradient
+if VERSION >= v"1.2"
+    @info "loading Zygote, ForwardDiff"
+    using Zygote, ForwardDiff
+    const Zgrad = Zygote.gradient
+    const Fgrad = ForwardDiff.gradient
 
-@testset "contract gradient" begin
+    @testset "contract gradient" begin
 
-    bc = rand(Float32, b=2, c=3)
-    c = randn(Float32, c=3)
-    c′ = randn(Float32, c=3)
-    bcd = rand(Float32, b=2, c=3, d=4)
+        bc = rand(Float32, b=2, c=3)
+        c = randn(Float32, c=3)
+        c′ = randn(Float32, c=3)
+        bcd = rand(Float32, b=2, c=3, d=4)
 
-    @test Zgrad(x -> contract(x,c′), c)[1] ≈ Fgrad(x -> contract(x,c′), c)
-    @test Zgrad(x -> contract(x,x), c)[1] ≈ Fgrad(x -> contract(x,x), c)
+        @test Zgrad(x -> contract(x,c′), c)[1] ≈ Fgrad(x -> contract(x,c′), c)
+        @test Zgrad(x -> contract(x,x), c)[1] ≈ Fgrad(x -> contract(x,x), c)
 
-    @test Zgrad(x -> sum(sin,contract(bcd,x)), bc)[1] ≈ Fgrad(x -> sum(sin,contract(bcd,x)), bc)
+        @test Zgrad(x -> sum(sin,contract(bcd,x)), bc)[1] ≈ Fgrad(x -> sum(sin,contract(bcd,x)), bc)
 
+    end
 end
+
 #=
 @info "Done with own tests, now running those of NamedDims.jl to check that rampant piracy hasn't sunk anything important"
 # but now two reshape test will fail.
