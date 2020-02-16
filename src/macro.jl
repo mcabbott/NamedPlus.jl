@@ -205,7 +205,7 @@ function ex_tensor(ex, left=nothing)
             append!(out.args, (quote
                 # if $A isa NamedPlus.NamedUnion
                 if $A isa NamedDims.NamedDimsArray
-                    $Aperm = dim($A, ($(inds...),))
+                    $Aperm = NamedDims.dim($A, ($(inds...),))
                     $Aname = Base.permutedims(TensorOperations.Strided.maybestrided(NamedPlus.nameless($A)), $Aperm)
                 else
                     $Aname = $A

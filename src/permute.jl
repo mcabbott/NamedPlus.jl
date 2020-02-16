@@ -131,6 +131,10 @@ function TransmuteDims.Transmute{perm}(data::A) where {A<:NamedUnion, perm}
     TransmutedDimsArray{T,N,perm_plus,iperm,A,L}(data)
 end
 
+#################### WILDCARDS ####################
+
+
+
 #################### REDUCE ####################
 
 """

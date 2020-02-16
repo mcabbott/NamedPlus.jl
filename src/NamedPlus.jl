@@ -1,7 +1,7 @@
 module NamedPlus
 
 using NamedDims
-export NamedDims, NamedDimsArray, dim, unname, rename
+export NamedDims, NamedDimsArray, rename
 
 # using AxisRanges # perhaps they can co-operate for now
 # export wrapdims, RangeArray, ranges
