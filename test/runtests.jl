@@ -103,7 +103,7 @@ end
 
     @test (@inferred (() -> prime(:a))() ;true)
     @test (@inferred (() -> _prime((:i,:j,:k), Val(1)))() ;true)
-    if VERSION <= "v1.4-"
+    if VERSION <= v"1.4-"
         @test 0 == @allocated (() -> prime(:a))()
         @test 0 == @allocated (() -> _prime((:i,:j,:k), Val(1)))()
     end
@@ -137,7 +137,7 @@ end
 
     @test (@inferred (() -> _join(:i, :j))() ;true)
     @test (@inferred (() -> _split(_join(:i, :j)))() ;true)
-    if VERSION <= "v1.4-"
+    if VERSION <= v"1.4-"
         @test 0 == @allocated (() -> _join(:i, :j))()
         @test 0 == @allocated (() -> _split(_join(:i, :j)))()
     end
