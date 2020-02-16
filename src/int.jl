@@ -78,6 +78,11 @@ end
 #                  join(map(string,d), '×')
 Base.dims2string(d::Tuple{NamedInt}) = string(d[1].val, "-element")
 
+nameless(x::NamedInt) = value(x)
+nameless(xs::Tuple{NamedInt, Vararg{Integer}}) = map(value, xs)
+nameless(xs::Tuple{Integer, NamedInt, Vararg{Integer}}) = map(value, xs)
+nameless(xs::Tuple{NamedInt, NamedInt, Vararg{Integer}}) = map(value, xs)
+
 #################### USING IT ####################
 
 # Base.size(x::NamedDimsArray{L}) where {L} = map(NamedInt, size(parent(x)), L)
@@ -145,6 +150,10 @@ Base.reshape(A::AbstractArray, i::CorI, ni::NamedInt, rest::CorI...) = named_res
 Base.reshape(A::AbstractArray, ni::NamedInt, ni′::NamedInt, rest::CorI...) = named_reshape(A, ni, ni′, rest...)
 
 named_reshape(A::AbstractArray, sz::CorI...) = NamedDimsArray(reshape(unname(A), value.(sz)...), name.(sz))
+
+Base.reshape(A::AbstractArray, sz::Tuple{NamedInt, Vararg{CorI}}) = named_reshape(A, sz...)
+Base.reshape(A::AbstractArray, sz::Tuple{CorI, NamedInt, Vararg{CorI}}) = named_reshape(A, sz...)
+Base.reshape(A::AbstractArray, sz::Tuple{NamedInt, NamedInt, Vararg{CorI}}) = named_reshape(A, sz...)
 
 # function named_reshape(A::NamedUnion, sz::CorI...)
 #     getnames(A)

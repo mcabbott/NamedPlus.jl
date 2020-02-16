@@ -148,7 +148,7 @@ function Base.join(A::NamedUnion, p::Pair{<:Tuple,Symbol})
             getnames(A, d+1)
         end
         # @info "noperm"
-        return NamedDimsArray{nm}(reshape(nameless(A), sz))
+        return NamedDimsArray{nm}(reshape(nameless(A), nameless.(sz))) # remove NamedInt!
 
     elseif d2 == d1 + 1
         return join(copy(A), p)
@@ -209,7 +209,7 @@ Base.split(A::NamedUnion, pair::Pair{Symbol,<:NamedTuple}) =
     split(A, pair.first => keys(pair.second), Tuple(pair.second))
 
 function Base.split(A::NamedUnion, pair::Pair{Symbol,<:Tuple}, sizes::Tuple)
-    d0 = dim(A, pair.first)
+    d0 = NamedDims.dim(A, pair.first)
     sz = ntuple(ndims(A)+1) do d
         d < d0 ? size(A,d) :
         d==d0 ? sizes[1] :
@@ -222,14 +222,14 @@ function Base.split(A::NamedUnion, pair::Pair{Symbol,<:Tuple}, sizes::Tuple)
         d==d0+1 ? pair.second[2] :
         getnames(A, d-1)
     end
-    NamedDimsArray{nm}(reshape(nameless(A), sz))
+    NamedDimsArray{nm}(reshape(nameless(A), nameless.(sz)))
 end
 
 Base.split(A::NamedUnion, s::Symbol, sizes::Union{Tuple, NamedUnion}) =
     split(A, s => _split(s), sizes)
 
 Base.split(A::NamedUnion, pair::Pair{Symbol,<:Tuple}, B::NamedUnion) =
-    split(A, pair, dim(B, pair.second))
+    split(A, pair, NamedDims.dim(B, pair.second))
 
 
 #=

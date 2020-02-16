@@ -183,6 +183,7 @@ end
     # reshape
     @test dimnames(reshape(rand(6), ni, nj)) == (:i, :j)
     @test dimnames(reshape(rand(1,6,1), nj, :)) == (:j, :_)
+    @test dimnames(reshape(rand(1,6,1), (:, nj))) == (:_, :j)
 
     # Array(undef...)
     @test dimnames(Array{Int}(undef, ni, 1, nj)) == (:i, :_, :j)
