@@ -29,7 +29,7 @@ julia> named(ones(2,3,1,1), :a, :b, .., :z)
 ```
 """
 named(A::AbstractArray, names::Tuple) = named(A, names...)
-named(A::AbstractArray, B::NamedUnion) = named(A, names(B))
+named(A::AbstractArray, B::NamedUnion) = named(A, getnames(B)...)
 
 function named(A::AbstractArray, names::Union{Symbol, Dots}...)
     names isa Tuple{Vararg{Symbol}} && return NamedDimsArray(A, names)
@@ -53,7 +53,11 @@ function named(A::AbstractArray, names::Union{Symbol, Dots}...)
     end
 
     late > early || @warn "not all names in $names will be used in output $final"
-    NamedDimsArray(A, final)
+    if A isa NamedDimsArray
+        refine_names(A, final) # from v0.2.16
+    else
+        NamedDimsArray(A, final)
+    end
 end
 
 #################### ZERO, ONES ####################
