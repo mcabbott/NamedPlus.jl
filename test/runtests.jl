@@ -78,8 +78,6 @@ end
     @test align_prod!(m', t) == prod!(m, t)'
 
 end
-#=
-# broken without TransmuteDims master?
 @testset "broadcasting by name" begin
 
     @test dimnames(m ./ v') == (:i, :j)
@@ -90,7 +88,6 @@ end
     @test z == t .+ m ./ v'
 
 end
-=#
 @testset "rename & prime" begin
 
     @test prime(:z) == :z′
