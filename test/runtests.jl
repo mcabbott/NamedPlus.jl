@@ -166,6 +166,15 @@ end
     ni, nj = size(m)
     @test ni isa NamedInt
 
+    @test ni + 1 isa Int
+    @test -ni isa Int
+    @test ni + nj isa Int
+    @test 2ni isa Int
+    @test (ni<3) === false
+
+    @test NamedPlus.name(ni * nj) == :iᵡj
+    # @test NamedPlus.name(2 * nj) == :_ᵡj
+
     # Creators
     @test dimnames(zeros(ni, nj)) == (:i, :j)
     @test dimnames(ones(ni, nj)) == (:i, :j)

@@ -44,7 +44,7 @@ Base.show(io::IO, ::MIME"text/plain", x::NamedInt{L}) where {L} =
 
 # These operation preserve names, firstly to make printout re-pastable, but also...
 const ᵅ = NamedInt(1, :_)
-Base.:*(x::Integer, y::NamedInt{L}) where {L} = NamedInt(x * y.val, L)
+# Base.:*(x::Integer, y::NamedInt{L}) where {L} = NamedInt(x * y.val, _join(:_, L))
 Base.:*(x::NamedInt{Lx}, y::NamedInt{Ly}) where {Lx, Ly} = NamedInt(x.val * y.val, _join(Lx, Ly))
 # Base.literal_pow(::typeof(^), x::NamedInt{L}, ::Val{2}) where {L} =
 #     NamedInt(Base.literal_pow(^, x.val, Val(2)), _join(L,L))
@@ -55,12 +55,13 @@ for f in [:abs, :abs2, :sign, :string, :Int, :float, :-, :OneTo]
     @eval Base.$f(x::NamedInt) = Base.$f(x.val)
 end
 for (T,S) in [(:NamedInt, :Integer), (:Integer, :NamedInt), (:NamedInt, :NamedInt)]
-    for op in [:<, :>, :>=, :<=]
+    for op in [:<, :>, :>=, :<=, :+, :/, :mod, :div, :rem]
         @eval Base.$op(x::$T, y::$S) = $op(value(x), value(y))
     end
 end
 Base.convert(::Type{T}, x::NamedInt) where {T<:Number} = convert(T, x.val)
 Base.promote_rule(::Type{<:NamedInt}, ::Type{T}) where {T<:Number} = T
+Base.promote_rule(::Type{<:NamedInt}, ::Type{<:NamedInt}) = Int
 
 function Base.:(==)(x::NamedInt{Lx}, y::NamedInt{Ly}) where {Lx, Ly}
     if isequal(x.val, y.val)
