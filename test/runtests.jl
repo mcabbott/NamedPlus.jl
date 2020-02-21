@@ -132,7 +132,7 @@ end
     t2′ = split(t1′, :kᵡi => (k=4, i=2));
     t2′′ = split(t1′, :kᵡi => (i=2, k=4));
     @test t2[j=1] == transpose(t2′[j=1])
-    @test_broken t2[j=1] == t2′′[j=1]
+    @test_broken t2[j=1] == t2′′[j=1] # a serious bug!
 
     t2[1,1,1] = 99
     @test t1[1,1,1] == 99
@@ -175,7 +175,7 @@ end
     @test -ni isa Int
     @test ni + nj isa Int
     @test 2ni isa Int
-    @test (ni<3) === false
+    @test (ni<33) === true
 
     @test NamedPlus.name(ni * nj) == :iᵡj
     # @test NamedPlus.name(2 * nj) == :_ᵡj
@@ -275,8 +275,7 @@ end
 
 end
 
-
-using LinearAlgebra, TransmuteDims, EllipsisNotation
+using LinearAlgebra, TransmuteDims
 using TransmuteDims: TransmutedDimsArray
 
 @testset "named and .." begin
