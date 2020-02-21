@@ -1,6 +1,6 @@
 
 function Base.summary(io::IO, A::NamedDimsArray)
-    print(io, Base.dims2string(size(A)), " named(")
+    print(io, Base.dims2string(size(A)), " NamedDimsArray(")
     Base.showarg(io, parent(A), false)
     print(io, ", ", getnames(A), ")")
 end

@@ -22,10 +22,10 @@ so that for instance the trivial dimension of `transpose(`named vector`)` is dro
 
 ```
 julia> align(named(ones(3), :a), (:b, :a)) |> summary
-"1×3 named(::Transpose{Float64,Array{Float64,1}}, (:_, :a))"
+"1×3 NamedDimsArray(::Transpose{Float64,Array{Float64,1}}, (:_, :a))"
 
 julia> align(named(ones(3,4), :a, :b), (:b, :c, :a)) |> summary
-"4×1×3 named(transmute(::Array{Float64,2}, (2, 0, 1)), (:b, :_, :a))"
+"4×1×3 NamedDimsArray(transmute(::Array{Float64,2}, (2, 0, 1)), (:b, :_, :a))"
 ```
 """
 align(A::NamedUnion, ::NamedDimsArray{L}) where {L} = align(A, L)
@@ -130,9 +130,6 @@ function TransmuteDims.Transmute{perm}(data::A) where {A<:NamedUnion, perm}
     # :( TransmutedDimsArray{$T,$N,$perm_plus,$iperm,$A,$L}(data) )
     TransmutedDimsArray{T,N,perm_plus,iperm,A,L}(data)
 end
-
-#################### WILDCARDS ####################
-
 
 
 #################### REDUCE ####################

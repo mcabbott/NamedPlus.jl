@@ -13,10 +13,10 @@ julia> using NamedPlus, OMEinsum
 julia> A, B, C = ones(i=3, s=10), ones(s=10, j=5), ones(k=6, s=10);
 
 julia> contract(A, B, C) |> summary
-"3×5×6 named(::Array{Float64,3}, (:i, :j, :k))"
+"3×5×6 NamedDimsArray(::Array{Float64,3}, (:i, :j, :k))"
 
 julia> contract(C, A, B) |> summary
-"6×3×5 named(::Array{Float64,3}, (:k, :i, :j))"
+"6×3×5 NamedDimsArray(::Array{Float64,3}, (:k, :i, :j))"
 ```
 """
 contract(A::NamedDimsArray, B::NamedDimsArray, C::NamedDimsArray) =
@@ -69,13 +69,15 @@ julia> const *ᵇ = batchmul(:b)
 julia> C = A *ᵇ B;
 
 julia> summary(C)
-"3×5×2 named(::Array{Float64,3}, (:i, :k, :b))"
+"3×5×2 NamedDimsArray(::Array{Float64,3}, (:i, :k, :b))"
 
 julia> C[:,:,1] == A[:,:,1] * B[:,:,1]
 true
 ```
 """
-batchmul(b::Symbol) = (A, B) -> batchmul(Val(b), A, B)
+function batchmul(b::Symbol)
+    _batchmul(A, B) = batchmul(Val(b), A, B)
+end
 
 batchmul(b::Symbol, A::NamedDimsArray, B::NamedDimsArray) = batchmul(Val(b), A, B)
 
