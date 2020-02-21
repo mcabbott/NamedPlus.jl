@@ -1,7 +1,7 @@
 
 #################### NAMED ####################
 
-import EllipsisNotation
+using EllipsisNotation
 const Dots = EllipsisNotation.Ellipsis # now identical to IntervalSets's.
 
 """
