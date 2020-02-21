@@ -8,23 +8,24 @@ While that package is fairly minimal (and focused on providing a type with great
 this one defines lots of useful functions. Some of them are only defined when other packages 
 they need are loaded. Here's what works in `v0.0.1`:
 
-Some convenient ways add names (exports `@named`, `named`):
+Some convenient ways add names (exports `named`, `@named`, `nameless`):
 ```julia
-@named begin
-    m{i,j} = rand(Int8, 3,4)             # create a matrix whose type has (:i,:j)
-    g = [n^i for n in 1:20, i in 1:3]    # read names (:n,:i) from generator's variables
-end
-ones(i=1, j=4) .+ rand(Int8, i=3)        # names from keywords, needs rand(Type, i=...)
+m = rand(Int8; i=3, j=4)                 # names from keywords, needs rand(Type, i=...)
+m .+ ones(_=1, j=4, k=2)                 # ones(), zeros(), and fill() all work.
 
-using EllipsisNotation
-a_z = named(rand(4,1,1,2), :a, .., :z)   # adds names, or refines existing ones
+m .- named(parent(m), :i, :j)            # adds names, or refines existing ones, 
+a_z = named(rand(4,1,1,2), :a, .., :z)   # use .. (from EllipsisNotation) to skip some.
+
+@named g = [n^i for n in 1:20, i in 1:3] # read names (:n,:i) from generator's variables
+
 rename(m, :i => :z')                     # renames just :i, to :z' == :z′
+nameless(m, (:j, :i)) === transpose(m)   # also @named mt = m{j,i} 
 ```
 
 Some functions controlled by them:
 ```julia
-t = split(g, :n => (j=4, k=5))           # just reshape, new size (4,5,3)
-join(t, (:i, :k) => :χ)                  # copy if non-adjacent, size (4,15)
+t = split(g, :n => (j=4, k=5))           # just reshape, new size (4,5,3),
+join(t, (:i, :k) => :χ)                  # copy if non-adjacent, size (4,15).
 
 dropdims(a_z)                            # defaults to :_, and kills all of them
 transpose(a_z, :a, :z)                   # permutes (4,2,3,1)
@@ -37,14 +38,14 @@ z = zeros(d,d')                          # ones, fill, rand, etc
 z .= [sqrt(i) for i in 1:d, i′ in 1:d']  # comprehensions propagate names from (1:d)
 reshape(g, k,:,d) .+ g[end, d]           # reshape propagate via sizes
 
-using Einsum, TensorCast
+using Einsum, TensorCast                 # These packages dont't know about names at all,
 @einsum mz[i,k] := m[i,j] * z[i,k]       # works because of Array{}(undef, NamedInt...)
 @cast tm[i⊗j,k] := t[j,k,i] + m[i,j]     # works because of reshape(A, NamedInt)
 ```
 
 Some automatic re-ordering of dimensions (`align`, `align_sum!`, `align_prod!`):
 ```julia
-align(m, (:j, :k, :i))                   # lazy generalised permutedims
+align(m, (:j, :k, :i))                   # lazy generalised permutedims, (:j, :_, :i)
 @named q{i,j,k} = m .+ t                 # used for auto-permuted broadcasting
 align(m, t) .+ t                         # or to manually fix things up
 
@@ -53,20 +54,21 @@ align_sum!(Int.(m), t)                   # reduce (:j, :k, :i) into (:i, :j)
 
 Including for matrix multiplication (`mul`, `*ᵃ`, `contract`, `batchmul`):
 ```julia
-m *ᵃ z == mul(m, z, :i) == m' * z        # matrix multiplication on shared index
-g *ᵃ m == (m *ᵃ g)'
+m *ᵃ z == mul(m, z, :i) == m' * z        # matrix multiplication on shared index,
+g *ᵃ m == (m *ᵃ g)'                      # typed *\^a tab.
 
-using TensorOperations                   # named inputs re-arranged via Strided
-@named @tensor p[j,i′] := m[i,j] * z[i,i′]
+using TensorOperations
 contract(m, t)                           # shared indices i & j, leaving only k
-
-using Zygote                             # contract defines a gradient
-gradient(m -> sum(contract(m,t)[1]), m)[1]
+@named @tensor p[j,i′] := m[i,j] * z[i,i′] # named inputs re-arranged via Strided
 
 using OMEinsum
 contract(m, t, z)                        # sum over shared :i, leaving (:j, :k, :i′)
-*ᵇ = batchmul(:k)                        # batch index :k,
+const *ᵇ = batchmul(:k)                  # batch index :k,
 t *ᵇ rename(t, :i => :i')                # sum over shared :j, leaving (:i, :i′, :k)
+
+using Zygote                             
+gradient(m -> sum(contract(m,t)[1]), m)[1] # contract defines a gradient
+gradient(t -> sum(t *ᵇ q), t)[1]         # OMEinsum defines this gradient
 ```
 
 Some other bits have moved to [AxisRanges.jl](https://github.com/mcabbott/AxisRanges.jl).
