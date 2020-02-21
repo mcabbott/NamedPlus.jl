@@ -230,4 +230,21 @@ canonise(x::NamedDimsArray{L,T,N,<:TransmutedDimsArray{T,N,P,Q}}) where {L,T,N,P
     NamedDimsArray{ntuple(i->L[Q[i]], ndims(grandparent(x)))}(grandparent(x))
 
 
+#################### NAMELESS ####################
+
+"""
+    nameless(A, names)
+
+Returns an array with no names, after permuting `A`'s dimensions to match the given `names`.
+Unlike `nameless(align(A, names))`, this demands that the A's names are a permutation of those.
+"""
+function nameless(A::AbstractArray, names::Tuple{Vararg{Symbol}})
+    hasnames(A) || error("nameless(A, names) demands that A have names!")
+    ndims(A) == length(names) || error("wrong number of names")
+    B = align(A, names)
+    ndims(B) == ndims(A) || error("the given names must be a permutation of A's names")
+    nameless(B)
+end
+
+
 ####################

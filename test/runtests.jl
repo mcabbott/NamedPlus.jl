@@ -14,7 +14,12 @@ z = NamedDimsArray(rand(26), :z)
         t2{i,j,k} = rand(2,3,4)
     end
     @test dimnames(v2) == (:j,)
-    @test_skip dimnames(t2,2) == :j
+    @test dimnames(t2) == (:i, :j, :k)
+    @test dimnames(@named A{a,..,z} = ones(2,1,1,1)) == (:a, :_, :_, :z)
+
+    # nameless & macro rename
+    @test (@named t = m{j,i}) === transpose(parent(m))
+    @test (@named t{x,y} = m{i,j}) == rename(m, :i => :x, :j => :y)
 
     # comprehensions
     @test (@named [i^2 for i in 1:3]) isa NamedDimsArray
@@ -22,8 +27,8 @@ z = NamedDimsArray(rand(26), :z)
 
     @test dimnames(@named [x^2 for x in 1:2:10]) == (:x,)
     @test dimnames(@named [x^i for x in 1:2:10, i in 1:3]) == (:x, :i)
-    @test_skip ranges(@named [x^2 for x in 1:2:10]) == (1:2:10,)
-    @test_skip ranges(@named [x^i for x in 1:2:10, i in 1:3]) == (1:2:10, 1:3)
+    # @test_skip ranges(@named [x^2 for x in 1:2:10]) == (1:2:10,)
+    # @test_skip ranges(@named [x^i for x in 1:2:10, i in 1:3]) == (1:2:10, 1:3)
 
     # printing
     m4 = named(Int8[1 2; 3 4], :i, :j)

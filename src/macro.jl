@@ -4,19 +4,13 @@
 using MacroTools
 
 """
-    @named A{i,j} = rand(2,3)    # A ≈ NamedDimsArray(rand(2,3), (:i, :j))
-    @named B = A{j,i}            # B = unname(A, (:j, :i))
-    @named C{x,y} = A{j,i}       # C = NamedDimsArray(B, (:x, :y))
+    @named A{i,j} = rand(2,3)    # A ≈ named(rand(2,3), (:i, :j))
+    @named B = A{j,i}            # B = nameless(A, (:j, :i))
+    @named C{x,y} = A{j,i}       # C = named(B, (:x, :y))
 
 The `@named` macro can be used as a shorter way to add or remove names.
 It abuses `{i,j}` notation because these labels are part of the type of `A`.
 Note that the un-named `B` is sure to have the dimension that was `:j` as its first index.
-
-    @named @tensor A[i,j] := B[i,k] * C[k,j]
-
-The macro does two things to `@tensor` expressions (`using TensorOperations`).
-The newly created output array `A` here is always a `NamedDimsArray{(:i,:k)}`.
-And if `B` is a `NamedDimsArray`, then it must have names `(:i,:k)`, but any order is fine.
 
     @named D{i,j,y,x} = B .+ exp.(C)
     E = @named {i,j} = A .* B
@@ -26,16 +20,18 @@ If `C` is a `NamedDimsArray` then it will have
 its labels permuted (lazily) to match `i,j,y,x` before broadcasting.
 (Ordinary arrays at left alone, thus assumed to already match this order.)
 
-    @named [f(x) for x in 1:10]      # NamedDimsArray([f(x) for ...], :x)
-    @named [g(x) for y in 10:2:20]   # Wrap([g(x) for ...], y=10:2:20)
+    @named F = [f(x) for x in 1:10]      # NamedDimsArray([f(x) for ...], :x)
+    G = @named [g(x) for y in 10:2:20]   # wrapdims([g(x) for ...], y=10:2:20)
 
 Acting on comprehensions, it will use the variable name as a dimension name.
-If the range is not simply `1:N` then it will make a `RangeArray{...,NamedDimsArray{(:y,),...}}`.
+If the range is not simply `1:N`, and AxisRanges.jl is loaded,
+then it will make a `RangeArray{...,NamedDimsArray{(:y,),...}}`.
 
-    @named *′ = contract{k}      # *′(xs...) = Contract{(:k,)}(xs...)
+    @named @tensor A[i,j] := B[i,k] * C[k,j]
 
-For the special word `contract`, this defines a function as shown. Using a decorated
-infix symbol (such as `*′` or `*ⱼ`) lets you call this as `B *′ C`.
+The macro does two things to `@tensor` expressions (`using TensorOperations`).
+The newly created output array `A` here is always a `NamedDimsArray{(:i,:k)}`.
+And if `B` is a `NamedDimsArray`, then it must have names `(:i,:k)`, but any order is fine.
 
     @named begin
         B{i,j} = rand(2,3)
@@ -58,24 +54,20 @@ _named(input_ex, mod) =
         @capture(ex, @tensor lhs_ = rhs_)  && return ex_tensor(ex)
 
         @capture(ex, @einsum ex) && error("@named doesn't yet work on @einsum")
+        @capture(ex, @ein ex) && error("@named doesn't yet work on OMEinsum.@ein")
         @capture(ex, @strided ex) && error("@named doesn't yet work on @strided")
 
+        @capture(ex, Z_{xyz__} = A_{ijk__}) && return ex_rename(Z, xyz, A, ijk)
+
+        # @capture(ex, A_{ijk__} = B_) && return ex_addname(A, ijk, B) # handled by ex_cast
         @capture(ex, lhs_{ind__} = rhs_) && return ex_cast(lhs, ind, rhs, mod)
         @capture(ex, {ind__} = rhs_)     && return ex_cast(gensym(:bc), ind, rhs, mod)
         @capture(ex, lhs_{ind__} .= rhs_) && return ex_incast(lhs, ind, rhs, mod)
-
-        @capture(ex, Z_{xyz__} = A_{ijk__}) && return ex_rename(Z, xyz, A, ijk)
 
         @capture(ex, [val_ for ind_ in ran_] ) &&
             return ex_comprehension(ex, val, ind, ran, mod)
         @capture(ex, [val_ for ind1_ in ran1_, ind2_ in ran2_] ) &&
             return ex_comprehension(ex, val, ind1, ran1, ind2, ran2, mod)
-
-        # Special words like contract must come before nameless
-        @capture(ex, g_ = contract{ijk__}) && return ex_fun(g, :Contract, ijk)
-
-        # @capture(ex, A_{ijk__} = B_) && return ex_addname(A, ijk, B) # clash!
-        # @capture(ex, {ijk__} = B_)   && return ex_addname(gensym(:def), ijk, B)
 
         # This nameless thing must come last
         if @capture(ex, A_ = B_{ijk__})
@@ -87,24 +79,25 @@ _named(input_ex, mod) =
         ex
     end
 
-quotenodes(ijk::Vector) = map(quotenodes, ijk)
-quotenodes(s::Symbol) = s == :(..) ? :(EllipsisNotation.Ellipsis()) : QuoteNode(s)
+quotenodes(ijk::Vector) = Expr(:tuple, map(quotenodes, ijk)...)
+quotenodes(s::Symbol) = s == :(..) ? :(NamedPlus.EllipsisNotation.Ellipsis()) : QuoteNode(s)
+quotenodes(ex::Expr) = @capture(ex, n_') ? QuoteNode(Symbol(n,'′')) : error("did not expect expression $ex")
 quotenodes(q::QuoteNode) = q
 
 function ex_nameless(A, B, ijk)
-    stup = :( ($(quotenodes(ijk)...),) )
-    :( $A = NamedPlus.nameless($B, $stup) )
+    tup = quotenodes(ijk)
+    :( $A = NamedPlus.nameless($B, $tup) )
 end
 
 function ex_addname(A, ijk, B)
-    stup = :( ($(quotenodes(ijk)...),) )
-    :( $A = NamedPlus.named($B, $stup) )
+    tup = quotenodes(ijk)
+    :( $A = NamedPlus.named($B, $tup) )
 end
 
 function ex_rename(Z, xyz, A, ijk)
-    stup = :( ($(quotenodes(ijk)...),) )
-    stup2 = :( ($(map(QuoteNode,xyz)...),) )
-    :( $Z = NamedPlus.named(NamedPlus.nameless($A, $stup), $stup2) )
+    tup = quotenodes(ijk)
+    tup_out = quotenodes(xyz)
+    :( $Z = NamedPlus.named(NamedPlus.nameless($A, $tup), $tup_out) )
 end
 
 ##### Comprehensions #####
@@ -158,14 +151,11 @@ end
 
 ##### Broadcasting #####
 
-# This is an awful hack to avoid wrapping .+ with _permutenames
-# Also note that simple assignments come here not to ex_addname(),
-# so you will get NamedDimsArray(_permutenames(rand(2,3), ...), ...) which should be OK
 function ex_cast(lhs, ind, rhs, mod)
-    rhs isa Symbol && return ex_addname(lhs, ijk, rhs)
-
-    tup = :( ($(map(QuoteNode, ind)...),) )
-    # low = Meta.lower(mod, rhs)
+    rhs isa Symbol && return ex_addname(lhs, ind, rhs)
+    tup = quotenodes(ind)
+    # This is an awful hack to avoid wrapping .+ with Transmute{},
+    # everything else gets wrapped but Transmute{...}(sin) == sin
     newright = MacroTools.postwalk(rhs) do x
         if x isa Symbol && !startswith(string(x),'.')
             return :( NamedPlus.TransmuteDims.Transmute{$tup}($x) )
@@ -176,8 +166,7 @@ function ex_cast(lhs, ind, rhs, mod)
 end
 
 function ex_incast(lhs, ind, rhs, mod)
-    tup = :( ($(map(QuoteNode, ind)...),) )
-
+    tup = quotenodes(ind)
     newright = MacroTools.postwalk(rhs) do x
         if x isa Symbol && !startswith(string(x),'.')
             return :( NamedPlus.TransmuteDims.Transmute{$tup}($x) )
@@ -192,8 +181,8 @@ end
 function ex_fun(f, s, ijk)
     @assert s == :Contract
     f == :* && @warn "are you sure you mean to define a new function `*`?"
-    stup = :( ($(quotenodes(ijk)...),) )
-    :( $f(x...) = NamedPlus.Contract{$stup}(x...) )
+    tup = :( ($(quotenodes(ijk)...),) )
+    :( $f(x...) = NamedPlus.Contract{$tup}(x...) )
 end
 
 function ex_tensor(ex, left=nothing)
