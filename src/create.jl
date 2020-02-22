@@ -218,6 +218,7 @@ function outer(f::Function, x::AbstractArray, ys::AbstractArray...)
     views = map(ys) do y
         newaxes = ntuple(_->newaxis, dims)
         colons = ntuple(_->(:), ndims(y))
+        dims += ndims(y)
         view(y, newaxes..., colons...)
     end
     Broadcast.broadcast(f, x, views...)

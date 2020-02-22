@@ -34,6 +34,9 @@ z = NamedDimsArray(rand(26), :z)
     m4 = named(Int8[1 2; 3 4], :i, :j)
     @test repr(m4) == "named(Int8[1 2; 3 4], :i, :j)"
 
+    size(outer(+, m2', v2, t2)) == (3, 2, 3, 2, 3, 4)
+    dimnames(outer(m2, v2, t2)) == (:i, :j, :j, :i, :j, :k)
+
 end
 @testset "align" begin
 
