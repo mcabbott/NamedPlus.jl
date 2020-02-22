@@ -147,10 +147,12 @@ function Base.join(A::NamedUnion, p::Pair{<:Tuple,Symbol})
             d==min(d1,d2) ? p.second :
             getnames(A, d+1)
         end
-        # @info "noperm"
+        @debug "NamedPlus join is easy as d1=$d1 is one less than d2=$d2" getnames(A) p
+        # ENV["JULIA_DEBUG"] = "all" # turns these on
         return NamedDimsArray{nm}(reshape(nameless(A), nameless.(sz))) # remove NamedInt!
 
     elseif d2 == d1 + 1
+        @debug "NamedPlus join is copying as A not a StridedArray" typeof(A) p
         return join(copy(A), p)
 
     elseif d1 < d2
@@ -163,7 +165,7 @@ function Base.join(A::NamedUnion, p::Pair{<:Tuple,Symbol})
             d == d2 ? d2 :
             d
         end
-        # @info "d1 < d2" perm
+        @debug "NamedPlus join needs permutedims, d1=$d1 < d2=$d2" getnames(A) perm p
         return join(permutedims(A, perm), p)
     elseif d1 > d2
         # 1 2 3** 4 5 6* 7 8
@@ -175,10 +177,10 @@ function Base.join(A::NamedUnion, p::Pair{<:Tuple,Symbol})
             d == d1 ? d2 :
             d
         end
-        # @info "d1 > d2" perm
+        @debug "NamedPlus join needs permutedims, d1=$d1 > d2=$d2" getnames(A) perm p
         return join(permutedims(A, perm), p)
     end
-    error("not yet")
+    error("this shouldn't happen!")
 end
 
 # @btime (() -> _join(:i, :j))() # 0 allocations

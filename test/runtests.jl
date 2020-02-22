@@ -128,14 +128,13 @@ end
     @test size(split(m, :i => (:i1, :i2), (1,2))) == (1, 2, 3)
 
     @test t == split(join(t, (:i,:j) => :ij), :ij => (:i,:j), (2,3))
+    @test t == permutedims(split(join(t, (:j,:i) => :ji), :ji => (:j,:i), (3,2)), (:i, :j, :k))
 
     t2 = split(t1, :iᵡk => (:i,:k), (2,4));
     @test dimnames(t2) == (:j, :i, :k)
     @test size(t2) == (3, 2, 4)
     t2′ = split(t1′, :kᵡi => (k=4, i=2));
-    t2′′ = split(t1′, :kᵡi => (i=2, k=4));
     @test t2[j=1] == transpose(t2′[j=1])
-    @test_broken t2[j=1] == t2′′[j=1] # a serious bug!
 
     t2[1,1,1] = 99
     @test t1[1,1,1] == 99
