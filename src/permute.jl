@@ -32,6 +32,7 @@ align(A::NamedUnion, ::NamedDimsArray{L}) where {L} = align(A, L)
 
 function align(A::NamedUnion, target::Tuple{Vararg{Symbol}})
     B = canonise(A)
+    B === A || @debug "NamedPlus.align canonicalised" typeof(A) typeof(B)
     namesB = getnames(B)
 
     allunique(namesB) || throw(ArgumentError("input must have unique names, got $namesB" *
@@ -44,6 +45,7 @@ function align(A::NamedUnion, target::Tuple{Vararg{Symbol}})
     perm = map(n -> NamedDims.dim_noerror(namesB, n), target)
 
     if perm == ntuple(identity, ndims(B))
+        @debug "NamedPlus.align: trivial"
         return B
 
     elseif !NamedDims.tuple_issubset(namesB, target)
@@ -51,9 +53,11 @@ function align(A::NamedUnion, target::Tuple{Vararg{Symbol}})
         Base.sym_in(:_, target) && throw(ArgumentError("wildcard in target $target means the result is ambigous"))
 
         extras = filter(n -> n ∉ target, namesB)
+        @debug "NamedPlus.align: add extra dimensions to target" namesB target extras
         return align(B, (target..., extras...))
 
     elseif (perm == (2,1) || perm == (0,1)) && eltype(A) <: Number
+        @debug "NamedPlus.align: transpose" namesB target
         return transpose(B)
 
     else
@@ -63,15 +67,18 @@ function align(A::NamedUnion, target::Tuple{Vararg{Symbol}})
 
         # Fancier version which trims trailing dims, and may return transpose etc.
         short_perm = _trim_trailing_zeros(perm)
-        L = ntuple(length(short_perm)) do i
-            n = target[i]
-            Base.sym_in(n, namesB) ? n : :_
-        end
         if length(short_perm) < length(perm)
-            return align(B, L)
+            short = ntuple(d -> target[d], length(short_perm))
+            @debug "NamedPlus.align: shorten target" namesB target short
+            return align(B, short)
         else
-            C = Transmute{short_perm}(nameless(B))
-            return NamedDimsArray{L}(C)
+            namesC = ntuple(length(perm)) do i
+                n = target[i]
+                Base.sym_in(n, namesB) ? n : :_
+            end
+            @debug "NamedPlus.align: transmute" namesB target perm namesC
+            C = Transmute{perm}(nameless(B))
+            return NamedDimsArray{namesC}(C)
         end
     end
 end
@@ -203,7 +210,7 @@ canonise(x::Transpose{T,<:NamedDimsArray{L,T,1}}) where {L,T<:Number} = parent(x
 
 # same for Adjoint but only on reals
 canonise(x::NamedDimsArray{L,T,2,<:Adjoint{T,<:AbstractArray{T,2}}}) where {L,T<:Real} =
-    NamedDimsArray{(L[2],L[1])}(xgrandparent(x))
+    NamedDimsArray{(L[2],L[1])}(grandparent(x))
 
 canonise(x::Adjoint{T,<:NamedDimsArray{L,T,2}}) where {L,T<:Real} =
     NamedDimsArray{(L[2],L[1])}(grandparent(x))

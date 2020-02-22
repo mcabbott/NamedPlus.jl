@@ -78,6 +78,16 @@ end
     @test dimnames(m4) == (:_, :j, :_, :i)
     @test size(m4) == (1,3,1,2)
 
+    m5 = align(transpose(m), (:w, :j, :z, :i))
+    @test dimnames(m5) == (:_, :j, :_, :i)
+    @test size(m5) == (1,3,1,2)
+    m5 = align(adjoint(m), (:w, :j, :z, :i))
+    @test dimnames(m5) == (:_, :j, :_, :i)
+    @test size(m5) == (1,3,1,2)
+    m5 = align(PermutedDimsArray(m,(2,1)), (:w, :j, :z, :i))
+    @test dimnames(m5) == (:_, :j, :_, :i)
+    @test size(m5) == (1,3,1,2)
+
 end
 @testset "aligned reduction" begin
 
