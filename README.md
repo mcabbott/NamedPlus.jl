@@ -1,6 +1,7 @@
 # NamedPlus.jl
 
 [![Build Status](https://travis-ci.org/mcabbott/NamedPlus.jl.svg?branch=master)](https://travis-ci.org/mcabbott/NamedPlus.jl)
+[![Stable Docs](https://img.shields.io/badge/docs-blue.svg)](https://pkg.julialang.org/docs/NamedPlus/)
 
 This package exists to experiment with the arrays provided by 
 [NamedDims.jl](https://github.com/invenia/NamedDims.jl). 
@@ -59,6 +60,7 @@ g *ᵃ m == (m *ᵃ g)'                      # typed *\^a tab.
 
 using TensorOperations
 contract(m, t)                           # shared indices i & j, leaving only k
+m ⊙ᵃ t == t ⊙ᵃ m                         # infix version, \odot\^a tab
 @named @tensor p[j,i′] := m[i,j] * z[i,i′] # named inputs re-arranged via Strided
 
 using OMEinsum
@@ -79,6 +81,12 @@ using NamedPlus, AxisRanges, Plots
 @named [n^i for n in 1:2:40, i in 2:4]   # has custom ranges
 scatter(ans, yaxis=:log10)               # labels axes & series
 ```
+
+While the functions in [NamedDims.jl](https://github.com/invenia/NamedDims.jl) try very hard 
+to be zero-cost (by working hard to exploit constant propagation), this is not true here.
+In particluar `split`, `join`, `align`, `rename` will cost around 1μs.
+(Perhaps if useful they can be made faster.) 
+But `mul` and `*ᵃ`, and aligned broadcasting via `@named`, should be nearly free, perhaps 5ns.
 
 Compared to Pytorch's [new named tensors](https://pytorch.org/docs/stable/named_tensor.html):
 
