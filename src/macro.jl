@@ -63,6 +63,8 @@ _named(input_ex, mod) =
         @capture(ex, lhs_{ind__} = rhs_) && return ex_cast(lhs, ind, rhs, mod)
         @capture(ex, {ind__} = rhs_)     && return ex_cast(gensym(:bc), ind, rhs, mod)
         @capture(ex, lhs_{ind__} .= rhs_) && return ex_incast(lhs, ind, rhs, mod)
+        # @capture(ex, lhs_ := rhs_) && return ex_cast_guess(lhs, rhs, mod)
+        # @capture(ex, lhs_ .= rhs_) && return ex_incast_guess(lhs, rhs, mod)
 
         @capture(ex, [val_ for ind_ in ran_] ) &&
             return ex_comprehension(ex, val, ind, ran, mod)
@@ -157,8 +159,10 @@ function ex_cast(lhs, ind, rhs, mod)
     # This is an awful hack to avoid wrapping .+ with Transmute{},
     # everything else gets wrapped but Transmute{...}(sin) == sin
     newright = MacroTools.postwalk(rhs) do x
+        @capture(x, v_') && return :(conj($v))
         if x isa Symbol && !startswith(string(x),'.')
-            return :( NamedPlus.TransmuteDims.Transmute{$tup}($x) )
+            # return :( NamedPlus.TransmuteDims.Transmute{$tup}($x) )
+            return :( NamedPlus._transmute($x, Val($tup)) )
         end
         x
     end
@@ -168,12 +172,24 @@ end
 function ex_incast(lhs, ind, rhs, mod)
     tup = quotenodes(ind)
     newright = MacroTools.postwalk(rhs) do x
+         @capture(x, v_') && return :(conj($v))
         if x isa Symbol && !startswith(string(x),'.')
-            return :( NamedPlus.TransmuteDims.Transmute{$tup}($x) )
+            # return :( NamedPlus.TransmuteDims.Transmute{$tup}($x) )
+            return :( NamedPlus._transmute($x, Val($tup)) )
         end
         x
     end
-    return :( NamedDims.NamedDimsArray($lhs, $tup) .= $newright )
+    return :( NamedPlus.named($lhs, $tup) .= $newright )
+end
+
+function ex_cast_guess(lhs, rhs, mod)
+    error("""not yet!
+        The idea though is that @named A := B .+ C should figure out the names
+        for A at compile-time... by constructing a generated function?
+        This will be quite complicated.
+        """)
+    quote
+    end
 end
 
 ##### Contractions @ @tensor #####

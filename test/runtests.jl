@@ -105,6 +105,11 @@ end
     @named z{i,j,k} = t .+ m ./ v
     @test z == t .+ m ./ v'
 
+    c = ones(i=3) .+ im
+    ct = c'
+    @test (@named {i} = c .+ c') == 2 .* ones(i=3)
+    @test_broken (@named {i} = c .+ ct) == 2 .* ones(i=3)
+
 end
 @testset "rename & prime" begin
 

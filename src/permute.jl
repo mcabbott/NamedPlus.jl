@@ -97,6 +97,7 @@ function Base.PermutedDimsArray(nda::NamedUnion, perm::Tuple{Vararg{Symbol}})
     PermutedDimsArray(nda, dim(getnames(nda), perm))
 end
 
+#=
 function TransmuteDims.TransmutedDimsArray(nda::NamedUnion, perm::Tuple{Vararg{Symbol}})
     list = getnames(nda)
     prime = map(i -> NamedDims.dim_noerror(list,i), perm)
@@ -137,7 +138,40 @@ function TransmuteDims.Transmute{perm}(data::A) where {A<:NamedUnion, perm}
     # :( TransmutedDimsArray{$T,$N,$perm_plus,$iperm,$A,$L}(data) )
     TransmutedDimsArray{T,N,perm_plus,iperm,A,L}(data)
 end
+=#
 
+function TransmuteDims.transmute(A::NamedUnion, perm)
+    list = getnames(A)
+    prime = map(i -> NamedDims.dim_noerror(list,i), perm)
+    new_names = map(d -> d in 1:ndims(A) ? list[d] : :_, prime)
+    NamedDimsArray(transmute(nameless(A), prime), new_names)
+end
+
+function TransmuteDims.transmute(A::NamedUnion, ::Val{perm}) where {perm}
+    list = getnames(A)
+    prime = map(i -> NamedDims.dim_noerror(list,i), perm)
+    new_names = map(d -> d in 1:ndims(A) ? list[d] : :_, prime)
+    # NamedDimsArray(transmute(nameless(A), Val(prime)), new_names)
+    NamedDimsArray(Transmute{prime}(nameless(A)), new_names) # currently smarter
+end
+
+# This version is no faster:
+# @generated function TransmuteDims.transmute(A::NamedDimsArray{list}, ::Val{perm}) where {list, perm}
+#     prime = map(i -> NamedDims.dim_noerror(list,i), perm)
+#     new_names = map(d -> d in 1:ndims(A) ? list[d] : :_, prime)
+#     :( NamedDimsArray(transmute(nameless(A), Val($prime)), $new_names) )
+# end
+
+# NB, for the macro we need a pass-through on all other objects,
+# and which may as well leave all names off, as they are added later:
+_transmute(A, perm) = A
+
+function _transmute(A::NamedUnion, ::Val{perm}) where {perm}
+    list = getnames(A)
+    prime = map(i -> NamedDims.dim_noerror(list,i), perm)
+    # transmute(nameless(A), Val(prime))
+    Transmute{prime}(nameless(A)) # currently smarter
+end
 
 #################### REDUCE ####################
 
