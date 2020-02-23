@@ -11,18 +11,33 @@ Base.convert(::Type{T}, ::One) where {T<:Number} = convert(T, 1)
 
 """
     contract(A, B, s)
-    contract(A, B)
+    contract(A, B) = A ⊙ᵃ B
 
 This is like `mul` except that it accepts not just matrices but also higer-dimensional arrays,
 using `TensorOperations.contract!`.
 By default it contracts over all names shared between `A` and `B`,
 if there are none then it is equivalent to `outer(A,B)`.
 
+The infix term is typed `\\odot\\^a <tab>`.
+
     contract(γ, A, B)
     contract(A', B)    # not yet!
 
 To multiply by a number `γ`, write it first. To conjugate all elements of one matrix,
 write `adjoint(A)`, which thanks to some piracy is no longer an error.
+
+```
+julia> ones(a=1, b=2, c=3) ⊙ᵃ ones(b=2)
+1×3 NamedDimsArray(::Array{Float64,2}, (:a, :c)):
+      → :c
+↓ :a  2.0  2.0  2.0
+
+julia> ones(a=1, b=2, c=3, d=4) ⊙ᵃ ones(c=3, z=1, b=2)
+1×4×1 NamedDimsArray(::Array{Float64,3}, (:a, :d, :z)):
+[:, :, 1] =
+      → :d
+↓ :a  6.0  6.0  6.0  6.0
+```
 """
 contract(A::NamedDimsArray, B::NamedDimsArray, sys::Symbol...) = contract(One(), A, B, Val(sys))
 

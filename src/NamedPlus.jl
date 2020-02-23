@@ -33,8 +33,7 @@ include("show.jl")
 
 using Requires
 
-function contract end
-export contract, batchmul
+export contract, ⊙ᵃ, batchmul
 
 @init @require TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2" begin
     include("contract.jl")

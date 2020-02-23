@@ -11,8 +11,7 @@ If not, it looks for exactly one name shared between the two.
 
 The infix form is typed `*\\^a<tab>`.
 
-See also the more general `contract(A, B, s)` for higher-rank tensors,
-for which you need `using TensorOperations`.
+See also the more general `contract(A, B, s)` for higher-rank tensors.
 """
 function mul(A::NamedUnion, B::NamedUnion)
     namesA, namesB = getnames(A), getnames(B)
@@ -82,5 +81,22 @@ end
 
 transpose1(x::AbstractArray{<:Number}) = transpose(x)
 transpose1(x::AbstractArray) = permutedims(x)
+
+#################### PACKAGES ####################
+
+"""
+    contract(A, B) == A ⊙ᵃ B  # using TensorOperations
+    contract(A, B, C)         # using OMEinsum
+
+This generalises matrix multiplication to higher-dimensional arrays.
+
+To contract two arrays, you must load the package `TensorOperations`.
+To contract three or more arrays (which is not really matrix multiplication at all)
+you must load the package `OMEinsum`.
+Those packages do all the work, and `NamedPlus` just handles the names.
+"""
+function contract end
+
+const ⊙ᵃ = contract
 
 ####################
