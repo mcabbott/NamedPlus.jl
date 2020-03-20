@@ -1,7 +1,7 @@
 name = "NamedPlus"
 uuid = "c949b730-32ca-5034-8981-9fadbaa9e517"
 authors = ["Michael Abbott"]
-version = "0.0.3"
+version = "0.0.4"
 
 [deps]
 Compat = "34da2185-b29b-5c13-b0c7-acf172513d20"

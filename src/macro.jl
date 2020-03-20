@@ -70,6 +70,8 @@ _named(input_ex, mod) =
             return ex_comprehension(ex, val, ind, ran, mod)
         @capture(ex, [val_ for ind1_ in ran1_, ind2_ in ran2_] ) &&
             return ex_comprehension(ex, val, ind1, ran1, ind2, ran2, mod)
+        # @capture(ex, stack(val_ for ind_ in ran_) ) &&
+        #     return ex_stack(ex, val, ind, ran, mod)
 
         # This nameless thing must come last
         if @capture(ex, A_ = B_{ijk__})
@@ -110,7 +112,8 @@ function ex_comprehension(ex, val, ind, ran, mod) # [val_ for ind_ in ran_]
 
     if (@capture(ran, start_:stop_) && start != 1) || @capture(ran, start_:step_:stop_)
         return quote
-            isdefined($mod, :AxisRanges) ? RangeArray($out, ($ran,)) : $out
+            isdefined($mod, :AxisRanges) ? RangeArray($out, ($ran,)) :
+            isdefined($mod, :AxisKeys) ? AxisKeys.KeyedArray($out, ($ran,)) : $out
         end
     else
         return out
@@ -141,7 +144,8 @@ function ex_comprehension(ex, val, ind1, ran1, ind2, ran2, mod)
     if needranges
         return quote
             $A = $ex
-            isdefined($mod, :AxisRanges) ? RangeArray($out, ($range1,$range2)) : $out
+            isdefined($mod, :AxisRanges) ? RangeArray($out, ($range1,$range2)) :
+            isdefined($mod, :AxisKeys) ? AxisKeys.KeyedArray($out, ($range1,$range2)) : $out
         end
     else
         return quote
@@ -150,6 +154,20 @@ function ex_comprehension(ex, val, ind1, ran1, ind2, ran2, mod)
         end
     end
 end
+
+# function ex_stack(ex, val, ind, ran, mod) # stack(val_ for ind_ in ran_)
+#     name = QuoteNode(ind)
+#     out = :( NamedPlus.named($ex, $(name...)) )
+
+#     if (@capture(ran, start_:stop_) && start != 1) || @capture(ran, start_:step_:stop_)
+#         return quote
+#             isdefined($mod, :AxisRanges) ? RangeArray($out, ($ran,)) :
+#             isdefined($mod, :AxisKeys) ? AxisKeys.KeyedArray($out, ($ran,)) : $out
+#         end
+#     else
+#         return out
+#     end
+# end
 
 ##### Broadcasting #####
 

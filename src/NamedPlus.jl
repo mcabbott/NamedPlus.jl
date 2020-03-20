@@ -3,8 +3,8 @@ module NamedPlus
 using NamedDims
 export NamedDims, NamedDimsArray, rename
 
-# using AxisRanges # perhaps they can co-operate for now
-# export wrapdims, RangeArray, ranges
+# using AxisKeys # perhaps they can co-operate for now
+# export wrapdims, KeyedArray, axiskeys
 
 include("recursion.jl")
 export getnames, nameless
@@ -43,7 +43,7 @@ end
     include("omeinsum.jl")
 end
 
-@init @require AxisRanges = "7d985058-612f-5500-9f06-de9955ae0899" begin
+@init @require AxisKeys = "94b1ba4f-4ee9-5380-92f1-94cde586c3c5" begin
     include("plots.jl")
 end
 

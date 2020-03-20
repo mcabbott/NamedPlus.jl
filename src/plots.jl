@@ -1,33 +1,30 @@
-using .AxisRanges
+using .AxisKeys
 using RecipesBase
 
-const RangeVec = Union{RangeArray{<:Any,1}, NamedDimsArray{<:Any,<:Any,1,<:RangeArray}}
-const RangeMat = Union{RangeArray{<:Any,2}, NamedDimsArray{<:Any,<:Any,2,<:RangeArray}}
-
-@recipe function _fun(a::RangeVec)
+@recipe function _fun(a::Union{KeyedArray{<:Any,1}, NamedDimsArray{<:Any,<:Any,1,<:KeyedArray}})
     label --> ""
 
     if hasnames(a)
-        xaxis --> string(names(a,1))
+        xaxis --> string(getnames(a,1))
     end
 
-    ranges(a,1), parent(a)
+    axiskeys(a,1), nameless(AxisKeys.keyless(a))
 end
 
-@recipe function _fun(a::RangeMat)
+@recipe function _fun(a::Union{KeyedArray{<:Any,2}, NamedDimsArray{<:Any,<:Any,2,<:KeyedArray}})
 
     if hasnames(a)
-        xaxis --> string(names(a,1))
+        xaxis --> string(getnames(a,1))
 
-        ystub = string(names(a,2)) * " = "
+        ystub = string(getnames(a,2)) * " = "
     else
         ystub = ""
     end
-    label --> permutedims(ystub .* string.(ranges(a,2)))
+    label --> permutedims(ystub .* string.(axiskeys(a,2)))
 
     # if hasmeta(a)
     #     yaxis --> string(meta(a))
     # end
 
-    ranges(a,1), parent(a)
+    nameless(AxisKeys.keyless(a))
 end
