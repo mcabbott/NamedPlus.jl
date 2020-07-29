@@ -73,11 +73,11 @@ gradient(m -> sum(contract(m,t)[1]), m)[1] # contract defines a gradient
 gradient(t -> sum(t *ᵇ q), t)[1]         # OMEinsum defines this gradient
 ```
 
-Some other bits have moved to [AxisRanges.jl](https://github.com/mcabbott/AxisRanges.jl).
+Some other bits have moved to [AxisKeys.jl](https://github.com/mcabbott/AxisKeys.jl).
 If both packages are loaded:
 
 ```julia
-using NamedPlus, AxisRanges, Plots
+using NamedPlus, AxisKeys, Plots
 @named [n^i for n in 1:2:40, i in 2:4]   # has custom ranges
 scatter(ans, yaxis=:log10)               # labels axes & series
 ```
