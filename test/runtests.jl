@@ -403,7 +403,7 @@ end
 
 end
 
-if VERSION >= v"1.2"
+if VERSION >= v"1.3"
     @info "loading Zygote, ForwardDiff"
     using Zygote, ForwardDiff
     const Zgrad = Zygote.gradient
@@ -422,6 +422,8 @@ if VERSION >= v"1.2"
         @test Zgrad(x -> sum(sin,contract(bcd,x)), bc)[1] ≈ Fgrad(x -> sum(sin,contract(bcd,x)), bc)
 
     end
+else
+    @info "skipping Zygote tests on Julia $VERSION"
 end
 
 #=
