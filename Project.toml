@@ -1,7 +1,7 @@
 name = "NamedPlus"
 uuid = "c949b730-32ca-5034-8981-9fadbaa9e517"
 authors = ["Michael Abbott"]
-version = "0.0.4"
+version = "0.0.5"
 
 [deps]
 Compat = "34da2185-b29b-5c13-b0c7-acf172513d20"
@@ -25,7 +25,7 @@ NamedDims = "0.2.16"
 OffsetArrays = "0.11, 1"
 RecipesBase = "0.7, 0.8, 1.0"
 Requires = "0.5, 1"
-TransmuteDims = "0.0.3"
+TransmuteDims = "0.0.3, 0.0.4"
 TupleTools = "1.0"
 ZygoteRules = "0.2"
 julia = "1"
