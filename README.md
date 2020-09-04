@@ -1,7 +1,8 @@
 # NamedPlus.jl
 
-[![Build Status](https://travis-ci.org/mcabbott/NamedPlus.jl.svg?branch=master)](https://travis-ci.org/mcabbott/NamedPlus.jl)
-[![Stable Docs](https://img.shields.io/badge/docs-blue.svg)](https://pkg.julialang.org/docs/NamedPlus/)
+[![Travis CI](https://img.shields.io/travis/mcabbott/NamedPlus.jl/master?logo=travis)](https://travis-ci.org/mcabbott/NamedPlus.jl)
+[![Tag Version](https://img.shields.io/github/v/tag/mcabbott/NamedPlus.jl?color=orange&logo=github)](https://github.com/mcabbott/NamedPlus.jl/releases)
+[![Docstrings](https://img.shields.io/badge/julia-docstrings-blue.svg)](https://juliahub.com/docs/NamedPlus/)
 
 This package exists to experiment with the arrays provided by 
 [NamedDims.jl](https://github.com/invenia/NamedDims.jl). 
