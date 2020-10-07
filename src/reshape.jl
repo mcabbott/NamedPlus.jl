@@ -1,13 +1,45 @@
 
 #################### VEC ####################
 
-function Base.vec(A::NamedUnion)
-    ndims(A) == 1 && return A
-    ndims(A) >= 3 && return vec(nameless(A))
-    NamedDimsArray(vec(nameless(A)), _join(getnames(A)...))
+"""
+    vec(A, :x)
+
+This asserts that all dimensions with names != `:x` must have size 1,
+and returns a vector with that name.
+```
+julia> A = ones(x=3, y=4);
+
+julia> vec(sum(A, dims=:y), :x)
+3-element NamedDimsArray(::Array{Float64,1}, (:x,)):
+↓ :x  4.0
+      4.0
+      4.0
+
+julia> vec(sum(A, dims=2), :y)
+ERROR: ArgumentError: discarded dimensions must be of size 1
+```
+"""
+function Base.vec(A::NamedUnion, i::Symbol)
+    ndims(A) == 1 && NamedDimsArray(A, i)
+    L = getnames(A)
+    ntuple(ndims(A)) do d
+        if L[d] === i || L[d] === :_
+        else
+            size(A,d)==1 || throw(ArgumentError("discarded dimensions must be of size 1"))
+        end
+    end
+    # newL = NamedDims.compile_time_return_hack((i,))
+    NamedDimsArray(vec(nameless(A)), i)
 end
 
-Base.reshape(A::NamedDimsArray, ::Colon) = vec(A)
+function Base.vec(A::NamedUnion)
+    ndims(A) == 1 && return A
+    # ndims(A) >= 3 && return vec(nameless(A))
+    # NamedDimsArray(vec(nameless(A)), _join(getnames(A)...))
+    vec(nameless(A))
+end
+
+# Base.reshape(A::NamedDimsArray, ::Colon) = vec(A)
 
 #################### KRON ####################
 
@@ -65,6 +97,8 @@ function named_dropdims(A, dims)
 end
 
 named_dropdims(A, ::Tuple{}) = A # since filter may give empty set
+
+named_dropdims(A, d::Int) = named_dropdims(A, (d,))
 
 function named_dropdims(A, dims::Tuple{Vararg{Int}})
     data = dropdims(nameless(A); dims=dims)

@@ -171,11 +171,17 @@ end
 @testset "vec, dropdims" begin
 
     @test dimnames(vec(v)) ==  (:j,)
-    @test dimnames(vec(m)) ==  (:iᵡj,)
+    @test dimnames(vec(v,:j)) ==  (:j,)
+    @test dimnames(vec(m)) ==  (:_,)
     @test dimnames(vec(t)) ==  (:_,)
+    @test_throws Exception vec(sum(t, dims=:i), :k)
+
+    @test dimnames(vec(sum(t, dims=(:i,:j)), :k)) == (:k,)
+    @test dimnames(dropdims(sum(t, dims=(:i,:j)), dims=(:i,:j))) == (:k,)
 
     @test size(dropdims(NamedDimsArray(rand(2,1,1), (:a, :_, :_)))) == (2,)
     @test dimnames(dropdims(named(ones(2,2,1,1,2), :a, :b, :_, :_, :c))) == (:a, :b, :c)
+
 
     # Test my pirate methods for _dropdims(::Transpose, 1) etc.
     r3 = rand(3)
