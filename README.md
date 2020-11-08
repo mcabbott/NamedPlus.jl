@@ -1,6 +1,6 @@
 # NamedPlus.jl
 
-[![Travis CI](https://img.shields.io/travis/mcabbott/NamedPlus.jl/master?logo=travis)](https://travis-ci.org/mcabbott/NamedPlus.jl)
+[![Github CI](https://img.shields.io/github/workflow/status/mcabbott/NamedPlus.jl/CI?logo=github)](https://travis-ci.org/mcabbott/NamedPlus.jl)
 [![Tag Version](https://img.shields.io/github/v/tag/mcabbott/NamedPlus.jl?color=orange&logo=github)](https://github.com/mcabbott/NamedPlus.jl/releases)
 [![Docstrings](https://img.shields.io/badge/julia-docstrings-blue.svg)](https://juliahub.com/docs/NamedPlus/)
 
