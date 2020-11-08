@@ -68,21 +68,38 @@ end
 This will define all sorts of convenient methods,
 like `ones(i=2)` and `rand(Float64, j=3)`.
 """
-macro pirate(ex=:Base)
-    ex == :Base || error()
-    str = read(joinpath(@__DIR__, "pirate.jl"), String)
-    # @show length(str)
-    n = 1
+macro pirate(exs...=(:Base,))
     out = quote end
-    while true
-        expr, n = Meta.parse(str, n; greedy=true)
-        expr === nothing && break
-        push!(out.args, expr)
-        # @show n expr
+
+    if :Base in exs
+        str = read(joinpath(@__DIR__, "pirate.jl"), String)
+        n = 1
+        while true
+            expr, n = Meta.parse(str, n; greedy=true)
+            expr === nothing && break
+            push!(out.args, expr)
+        end
+        push!(out.args, nothing)
     end
-    push!(out.args, nothing)
+
+#     @pirate NamedDims
+# This causes `size(nda)` to return a tuple of `NamedInt`s,
+# for propagating names through some code.
+    # if :NamedDims in exs
+    #     str = read(joinpath(@__DIR__, "int.jl"), String)
+    #     n = 1
+    #     while true
+    #         expr, n = Meta.parse(str, n; greedy=true)
+    #         expr === nothing && break
+    #         push!(out.args, expr)
+    #     end
+    #     push!(out.args, nothing)
+    # end
+
     out
 end
+
+# export NamedInt, ᵅ
 
 # Random.default_rng()::AbstractRNG
 using Random

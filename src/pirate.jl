@@ -1,3 +1,6 @@
+
+# This file is NOT loaded by default. You must say "@pirate NamedDims" to load it.
+
 #################### ZERO, ONES ####################
 
 _zero_doc = """

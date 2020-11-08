@@ -10,7 +10,7 @@ include("recursion.jl")
 export getnames, nameless
 
 include("int.jl")
-export NamedInt
+export NamedInt, ᵅ
 
 include("macro.jl")
 export @named

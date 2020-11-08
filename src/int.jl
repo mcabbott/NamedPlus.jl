@@ -16,8 +16,6 @@ M2 * x
 
 #################### NAMED-INT TYPE ####################
 
-export ᵅ
-
 """
     NamedInt(μ=3)
 
@@ -44,6 +42,7 @@ Base.show(io::IO, ::MIME"text/plain", x::NamedInt{L}) where {L} =
 
 # These operation preserve names, firstly to make printout re-pastable, but also...
 const ᵅ = NamedInt(1, :_)
+
 # Base.:*(x::Integer, y::NamedInt{L}) where {L} = NamedInt(x * y.val, _join(:_, L))
 Base.:*(x::NamedInt{Lx}, y::NamedInt{Ly}) where {Lx, Ly} = NamedInt(x.val * y.val, _join(Lx, Ly))
 # Base.literal_pow(::typeof(^), x::NamedInt{L}, ::Val{2}) where {L} =
