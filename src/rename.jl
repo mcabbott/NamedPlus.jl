@@ -94,12 +94,6 @@ const ndv = NamedDimsArray{(:a,)}([1,2,3])
 @btime (() -> prime(ndv, :a))()                               #  6.678 ns (1 allocation: 16 bytes)
 =#
 
-"""
-    :x' == :x′
-
-`adjoint(::Symbol)` adds unicode prime `′` to the end.
-"""
-Base.adjoint(s::Symbol) = prime(s)
 
 #=
 AB = NamedDimsArray(rand(1:10, 2,3), (:a,:b))

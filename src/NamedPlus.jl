@@ -10,7 +10,7 @@ include("recursion.jl")
 export getnames, nameless
 
 include("int.jl")
-export NamedInt
+export NamedInt, ᵅ
 
 include("macro.jl")
 export @named
@@ -19,7 +19,7 @@ include("permute.jl")
 export canonise, align, align_sum!, align_prod!
 
 include("create.jl")
-export named, diagonal, outer, ..
+export named, diagonal, outer, .., @pirate
 
 include("reshape.jl")
 

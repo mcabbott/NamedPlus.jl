@@ -108,10 +108,10 @@ end
     vt = v'
     @test_skip  (@named {j} = v .+ v') == 2v # fixed on master of TransmuteDims, also OK on 1.3
     @test_skip  (@named {j} = v .+ vt) == 2v
-    c = ones(i=3) .+ im
+    c = named(ones(3), :i) .+ im
     ct = c'
-    @test_skip (@named {i} = c .+ c') == 2 .* ones(i=3) # fixed on master of TransmuteDims
-    @test_broken (@named {i} = c .+ ct) == 2 .* ones(i=3) # can't unwrap adjoint
+    @test_skip (@named {i} = c .+ c') == 2 .* named(ones(3), :i) # fixed on master of TransmuteDims
+    @test_skip (@named {i} = c .+ ct) == 2 .* named(ones(3), :i) # can't unwrap adjoint
 
 end
 @testset "rename & prime" begin
@@ -122,7 +122,7 @@ end
 
     @test dimnames(rename(m, :j => :k)) == (:i, :k)
     @test dimnames(rename(m, :j => :k, :i => :j)) == (:j, :k)
-    @test dimnames(rename(m, :j => :k, :k => :l)) == (:i, :l)
+    @test_broken dimnames(rename(m, :j => :k, :k => :l)) == (:i, :l) # changed to NamedDims version
     @test dimnames(rename(m, (:a, :b))) == (:a, :b)
 
     using NamedPlus: _prime
@@ -194,6 +194,8 @@ end
 end
 @testset "named int" begin
 
+    # @pirate NamedDims # not yet optional
+
     ni, nj = size(m)
     @test ni isa NamedInt
 
@@ -231,6 +233,8 @@ end
 
 end
 @testset "base piracy" begin
+
+    @pirate Base
 
     # Base behaviour
     @test ones() isa Array{Float64, 0}
