@@ -1,6 +1,6 @@
 # NamedPlus.jl
 
-[![Github CI](https://img.shields.io/github/workflow/status/mcabbott/NamedPlus.jl/CI?logo=github)](https://travis-ci.org/mcabbott/NamedPlus.jl)
+[![Github CI](https://img.shields.io/github/workflow/status/mcabbott/NamedPlus.jl/CI?logo=github)](https://github.com/mcabbott/NamedPlus.jl/actions)
 [![Tag Version](https://img.shields.io/github/v/tag/mcabbott/NamedPlus.jl?color=orange&logo=github)](https://github.com/mcabbott/NamedPlus.jl/releases)
 [![Docstrings](https://img.shields.io/badge/julia-docstrings-blue.svg)](https://juliahub.com/docs/NamedPlus/)
 
@@ -12,6 +12,7 @@ they need are loaded. Here's what works in `v0.0.1`:
 
 Some convenient ways add names (exports `named`, `@named`, `nameless`):
 ```julia
+@pirate Base
 m = rand(Int8; i=3, j=4)                 # names from keywords, needs rand(Type, i=...)
 m .+ ones(_=1, j=4, k=2)                 # ones(), zeros(), and fill() all work.
 
